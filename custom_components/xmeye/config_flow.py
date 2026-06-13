@@ -11,10 +11,8 @@ import time
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNAME
-from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
@@ -24,8 +22,8 @@ from homeassistant.helpers.selector import (
 from .client import XMEyeAuthError, XMEyeClient
 from .const import (
     CONF_CHANNEL_COUNT,
-    CONFIG_ENTRY_VERSION,
     CONF_DEVICE_TYPE,
+    CONFIG_ENTRY_VERSION,
     DEFAULT_PORT,
     DEFAULT_USERNAME,
     DOMAIN,
@@ -93,7 +91,7 @@ async def async_discover_devices(timeout: float = _DISCOVERY_TIMEOUT) -> list[di
                             except Exception:  # noqa: BLE001
                                 pass
                         found[ip] = {"host": ip, "name": str(name)}
-                except socket.timeout:
+                except TimeoutError:
                     break
                 except OSError:
                     break
@@ -156,11 +154,11 @@ class XMEyeConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
             except XMEyeAuthError:
                 errors["base"] = "invalid_auth"
-            except (asyncio.TimeoutError, TimeoutError):
+            except TimeoutError:
                 errors["base"] = "cannot_connect"
             except OSError:
                 errors["base"] = "cannot_connect"
-            except Exception:  # noqa: BLE001
+            except Exception:
                 _LOGGER.exception("Unexpected error during XMEye setup")
                 errors["base"] = "unknown"
             else:
@@ -173,14 +171,6 @@ class XMEyeConfigFlow(ConfigFlow, domain=DOMAIN):
                     **extra,
                 }
                 return self.async_create_entry(title=device_name, data=data)
-
-        # Add a scan trigger button via a hidden field (HA renders it as a link)
-        schema = vol.Schema(
-            {
-                **_MANUAL_SCHEMA.schema,
-                vol.Optional("action"): vol.In(["scan"]),
-            }
-        )
 
         return self.async_show_form(
             step_id="user",
@@ -260,9 +250,9 @@ class XMEyeConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
             except XMEyeAuthError:
                 errors["base"] = "invalid_auth"
-            except (asyncio.TimeoutError, TimeoutError, OSError):
+            except (TimeoutError, OSError):
                 errors["base"] = "cannot_connect"
-            except Exception:  # noqa: BLE001
+            except Exception:
                 _LOGGER.exception("Unexpected error during XMEye reconfigure")
                 errors["base"] = "unknown"
             else:
@@ -319,9 +309,9 @@ class XMEyeConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
             except XMEyeAuthError:
                 errors["base"] = "invalid_auth"
-            except (asyncio.TimeoutError, TimeoutError, OSError):
+            except (TimeoutError, OSError):
                 errors["base"] = "cannot_connect"
-            except Exception:  # noqa: BLE001
+            except Exception:
                 _LOGGER.exception("Unexpected error during XMEye reauth")
                 errors["base"] = "unknown"
             else:

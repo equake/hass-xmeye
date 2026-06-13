@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 
 import aiohttp
-
 from homeassistant.components.camera import Camera, CameraEntityFeature
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
@@ -93,7 +91,7 @@ class XMEyeCamera(XMEyeEntity, Camera):
         auth = aiohttp.BasicAuth(self._username, sofia_hash(self._password))
 
         paths = (
-            [self._snapshot_path] + _SNAPSHOT_PATHS
+            [self._snapshot_path, *_SNAPSHOT_PATHS]
             if self._snapshot_path
             else _SNAPSHOT_PATHS
         )
@@ -110,7 +108,7 @@ class XMEyeCamera(XMEyeEntity, Camera):
                         if data:
                             self._snapshot_path = path_tpl
                             return data
-            except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            except (TimeoutError, aiohttp.ClientError) as err:
                 _LOGGER.debug("Snapshot attempt failed for %s: %s", url, err)
 
         _LOGGER.debug("All snapshot URLs failed for ch%d on %s", self._channel + 1, self._host)

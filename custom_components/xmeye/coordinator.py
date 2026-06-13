@@ -8,15 +8,14 @@ from collections.abc import Awaitable, Callable
 from datetime import timedelta
 from typing import Any, TypeVar
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNAME
 from homeassistant.core import HomeAssistant
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.event import async_track_time_interval
 
-from homeassistant.exceptions import ConfigEntryAuthFailed
-
-from .client import XMEyeClient, XMEyeAuthError, AlarmEvent
+from .client import AlarmEvent, XMEyeAuthError, XMEyeClient
 from .const import (
     CONF_CHANNEL_COUNT,
     CONF_DEVICE_TYPE,
@@ -131,7 +130,7 @@ class XMEyeCoordinator:
         for cb in self._listeners:
             try:
                 cb()
-            except Exception:  # noqa: BLE001
+            except Exception:
                 _LOGGER.exception("Error in listener callback")
 
     # ------------------------------------------------------------------
@@ -243,7 +242,7 @@ class XMEyeCoordinator:
         used_raw = entry.get("UsedSpace", 0)
         free_raw = entry.get("FreeSpace", 0)
 
-        # Devices report in different units (MB or sectors×512).
+        # Devices report in different units (MB or sectors x 512).
         # Values > 100_000 are likely in MB; otherwise assume GB directly.
         def to_gb(val: int | float) -> float:
             if val > 100_000:
@@ -270,14 +269,14 @@ class XMEyeCoordinator:
                 raise
             except XMEyeAuthError as err:
                 _LOGGER.error(
-                    "Authentication failed for %s – check credentials: %s",
+                    "Authentication failed for %s - check credentials: %s",
                     self.entry.data[CONF_HOST],
                     err,
                 )
                 raise ConfigEntryAuthFailed(str(err)) from err
             except Exception as err:  # noqa: BLE001
                 _LOGGER.warning(
-                    "XMEye connection lost for %s: %s – retrying in %ds",
+                    "XMEye connection lost for %s: %s - retrying in %ds",
                     self.entry.data[CONF_HOST],
                     err,
                     RECONNECT_DELAY,
@@ -359,4 +358,4 @@ class XMEyeCoordinator:
         except asyncio.CancelledError:
             pass
         except Exception:  # noqa: BLE001
-            _LOGGER.debug("Keepalive error – main loop will handle reconnect")
+            _LOGGER.debug("Keepalive error - main loop will handle reconnect")

@@ -7,8 +7,8 @@ import hashlib
 import json
 import logging
 import struct
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import AsyncIterator
 
 from .const import (
     MSG_ALARM_NOTIFY,
@@ -133,7 +133,7 @@ class XMEyeClient:
         try:
             _, resp = await asyncio.wait_for(self._recv(), timeout=5.0)
             _LOGGER.debug("Alarm subscribe response: %s", resp)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # Some devices do not acknowledge the subscription
             _LOGGER.debug("No alarm subscribe response (device may still push events)")
 
@@ -182,7 +182,7 @@ class XMEyeClient:
         await self._send(MSG_PTZ_CONTROL, body)
         try:
             await asyncio.wait_for(self._recv(), timeout=2.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             pass  # many firmwares do not ACK PTZ commands
 
     async def reboot(self) -> None:
@@ -195,7 +195,7 @@ class XMEyeClient:
         await self._send(MSG_CONFIG_SET, body)
         try:
             await asyncio.wait_for(self._recv(), timeout=3.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             pass  # device may disconnect immediately on reboot
 
     async def read_events(self) -> AsyncIterator[AlarmEvent]:
@@ -206,7 +206,7 @@ class XMEyeClient:
         while True:
             try:
                 msg_id, body = await asyncio.wait_for(self._recv(), timeout=_RECV_TIMEOUT)
-            except asyncio.TimeoutError as exc:
+            except TimeoutError as exc:
                 raise ConnectionError("Receive timeout — connection likely lost") from exc
             except asyncio.IncompleteReadError as exc:
                 raise ConnectionError("Connection closed by device") from exc
