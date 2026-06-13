@@ -40,13 +40,16 @@ _PTZ_MAP: dict[tuple[str | None, str | None, str | None], str] = {
 #   {channel1} = 1-based channel number (what most XMEye HTTP endpoints use)
 #   {user} / {password} = plain-text credentials
 #
-# NVR / DVR firmwares use 1-based channel numbering in the HTTP snapshot API
-# (channel=0 falls through to channel 1 on tested firmware, causing ch0 and ch1
-# in HA to both return the same camera). RTSP also uses 1-based; we follow suit.
+# XMEye / Sofia HTTP snapshot API uses 1-based channel numbering.
+# channel=0 falls through to channel 1 on tested firmware, so ch0 and ch1
+# in HA would both return the same camera. RTSP also uses 1-based; we follow suit.
+#
+# The authenticated path is tried first and works for any device where credentials
+# are set. The unauthenticated path covers devices that have no password configured.
 _SNAPSHOT_PATHS = [
-    # NVR / DVR: requires plain-text credentials; uses 1-based channel
+    # With credentials (plain-text in query string; works for NVR and password-protected IPC)
     "/webcapture.jpg?command=snap&channel={channel1}&user={user}&password={password}",
-    # IPC cameras: no auth required (factory-default empty password); 1-based channel
+    # Without credentials (covers devices with no password set)
     "/webcapture.jpg?command=snap&channel={channel1}",
     # Legacy paths still found on some older firmwares (0-based, kept as fallback)
     "/snap.jpg?channel={channel}",
