@@ -33,10 +33,12 @@ _PTZ_MAP: dict[tuple[str | None, str | None, str | None], str] = {
 }
 
 _SNAPSHOT_PATHS = [
+    "/snap.jpg?channel={channel}",
     "/web/cgi-bin/hi3510/snapPicture.cgi?chn={channel}",
     "/cgi-bin/snapshot.cgi?chn={channel}&q=0",
-    "/snap.jpg?channel={channel}",
 ]
+
+_JPEG_MAGIC = b"\xff\xd8\xff"
 
 _SNAPSHOT_TIMEOUT = aiohttp.ClientTimeout(total=5)
 
@@ -105,7 +107,9 @@ class XMEyeCamera(XMEyeEntity, Camera):
                 async with session.get(url, auth=auth, timeout=_SNAPSHOT_TIMEOUT) as resp:
                     if resp.status == 200:
                         data = await resp.read()
-                        if data:
+                        # Validate JPEG magic — some devices return HTTP 200 with an
+                        # HTML 404 body, which would be wrongly cached as a snapshot.
+                        if data and data[:3] == _JPEG_MAGIC:
                             self._snapshot_path = path_tpl
                             return data
             except (TimeoutError, aiohttp.ClientError) as err:
