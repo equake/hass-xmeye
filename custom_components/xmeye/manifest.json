@@ -1,12 +1,12 @@
 {
   "domain": "xmeye",
   "name": "XMEye / Sofia",
-  "version": "1.0.0",
+  "codeowners": ["@equake"],
   "config_flow": true,
+  "dependencies": [],
   "documentation": "https://github.com/equake/hass-xmeye",
+  "iot_class": "local_push",
   "issue_tracker": "https://github.com/equake/hass-xmeye/issues",
   "requirements": [],
-  "dependencies": [],
-  "codeowners": ["@equake"],
-  "iot_class": "local_push"
+  "version": "1.0.0"
 }
