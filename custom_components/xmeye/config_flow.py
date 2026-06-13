@@ -11,9 +11,12 @@ import time
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNAME
 from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
@@ -23,7 +26,9 @@ from .client import XMEyeAuthError, XMEyeClient
 from .const import (
     CONF_CHANNEL_COUNT,
     CONF_DEVICE_TYPE,
+    CONF_MOTION_CLEAR_DELAY,
     CONFIG_ENTRY_VERSION,
+    DEFAULT_MOTION_CLEAR_DELAY,
     DEFAULT_PORT,
     DEFAULT_USERNAME,
     DOMAIN,
@@ -125,6 +130,10 @@ class XMEyeConfigFlow(ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         super().__init__()
         self._discovered: list[dict[str, str]] = []
+
+    @staticmethod
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        return XMEyeOptionsFlow(config_entry)
 
     # ------------------------------------------------------------------
     # Step 1 — manual entry (default entry point)
@@ -334,4 +343,38 @@ class XMEyeConfigFlow(ConfigFlow, domain=DOMAIN):
             }),
             errors=errors,
             description_placeholders={"host": reauth_entry.data[CONF_HOST]},
+        )
+
+
+class XMEyeOptionsFlow(OptionsFlow):
+    """Options flow — adjustable settings after initial setup."""
+
+    def __init__(self, config_entry: ConfigEntry) -> None:
+        self._entry = config_entry
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        if user_input is not None:
+            return self.async_create_entry(
+                title="",
+                data={CONF_MOTION_CLEAR_DELAY: int(user_input[CONF_MOTION_CLEAR_DELAY])},
+            )
+
+        current_delay = int(
+            self._entry.options.get(CONF_MOTION_CLEAR_DELAY, DEFAULT_MOTION_CLEAR_DELAY)
+        )
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema({
+                vol.Optional(CONF_MOTION_CLEAR_DELAY, default=current_delay): NumberSelector(
+                    NumberSelectorConfig(
+                        min=0,
+                        max=300,
+                        step=5,
+                        unit_of_measurement="s",
+                        mode=NumberSelectorMode.SLIDER,
+                    )
+                ),
+            }),
         )
