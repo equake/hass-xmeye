@@ -58,3 +58,12 @@ ALL_EVENT_TYPES = [
 RECONNECT_DELAY = 30  # seconds between reconnection attempts
 
 CONFIG_ENTRY_VERSION = 1
+
+# Dispatcher signal fired when a new camera channel is confirmed.
+# Format: SIGNAL_NEW_CHANNEL.format(entry_id)
+SIGNAL_NEW_CHANNEL = "xmeye_{}_new_channel"
+
+# Minimum JPEG size (bytes) to accept as a real video frame during channel probe.
+# Placeholder icons returned by some NVR firmwares are ~750 bytes; real frames
+# are typically 50 KB+.
+MIN_SNAPSHOT_BYTES = 10_000

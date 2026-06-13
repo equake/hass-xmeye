@@ -12,10 +12,12 @@ from homeassistant.components.camera import Camera, CameraEntityFeature
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import XMEyeConfigEntry
 from .client import sofia_hash
+from .const import SIGNAL_NEW_CHANNEL
 from .coordinator import XMEyeCoordinator
 from .entity import XMEyeEntity
 
@@ -177,8 +179,17 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: XMEyeCoordinator = entry.runtime_data
-    async_add_entities(
-        XMEyeCamera(coordinator, channel) for channel in range(coordinator.channel_count)
+    async_add_entities([
+        XMEyeCamera(coordinator, ch) for ch in sorted(coordinator.connected_channels)
+    ])
+
+    def _on_new_channel(channel: int) -> None:
+        async_add_entities([XMEyeCamera(coordinator, channel)])
+
+    entry.async_on_unload(
+        async_dispatcher_connect(
+            hass, SIGNAL_NEW_CHANNEL.format(entry.entry_id), _on_new_channel
+        )
     )
 
 
