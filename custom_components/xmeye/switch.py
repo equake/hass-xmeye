@@ -64,8 +64,13 @@ class XMEyeSwitch(XMEyeEntity, SwitchEntity):
         self._description = description
         self.entity_description = description
         self._is_on: bool | None = None
+        self._config_supported: bool = True  # set False when device lacks the config
         self._attr_unique_id = f"{coordinator.entry.entry_id}_ch{channel}_{description.key}"
         self._attr_translation_placeholders = {"channel": str(channel + 1)}
+
+    @property
+    def available(self) -> bool:
+        return super().available and self._config_supported
 
     @property
     def is_on(self) -> bool | None:
@@ -97,9 +102,20 @@ class XMEyeSwitch(XMEyeEntity, SwitchEntity):
     async def async_update(self) -> None:
         try:
             if self._description.kind == "motion":
-                self._is_on = await self._read_motion_state()
+                state = await self._read_motion_state()
             else:
-                self._is_on = await self._read_recording_state()
+                state = await self._read_recording_state()
+            if state is None:
+                if self._config_supported:
+                    _LOGGER.debug(
+                        "Config not found on device for %s ch%d — marking unavailable",
+                        self._description.key,
+                        self._channel + 1,
+                    )
+                    self._config_supported = False
+            else:
+                self._is_on = state
+                self._config_supported = True
         except Exception:  # noqa: BLE001
             pass
 

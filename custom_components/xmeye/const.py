@@ -24,6 +24,7 @@ MSG_ALARM_NOTIFY = 1504
 CONF_NAME_GENERAL = "General"
 CONF_NAME_STORAGE = "StorageDeviceInfo"
 CONF_NAME_STORAGE_ALT = "StorageInfo"
+CONF_NAME_STORAGE_LEGACY = "Storage"  # some HVR firmwares use this name
 CONF_NAME_MOTION = "MotionDetect"
 CONF_NAME_ENCODE = "Simplify.Encode"
 CONF_NAME_ENCODE_ALT = "Encode"

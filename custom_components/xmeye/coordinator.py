@@ -25,6 +25,7 @@ from .const import (
     CONF_NAME_MOTION,
     CONF_NAME_STORAGE,
     CONF_NAME_STORAGE_ALT,
+    CONF_NAME_STORAGE_LEGACY,
     DOMAIN,
     RECONNECT_DELAY,
 )
@@ -228,13 +229,23 @@ class XMEyeCoordinator:
             self._notify_listeners()
 
     async def _fetch_storage(self, client: XMEyeClient) -> None:
-        for name in (CONF_NAME_STORAGE, CONF_NAME_STORAGE_ALT):
+        for name in (CONF_NAME_STORAGE, CONF_NAME_STORAGE_ALT, CONF_NAME_STORAGE_LEGACY):
             raw = await client.config_get(name)
-            if raw:
-                entries = raw if isinstance(raw, list) else [raw]
-                self.storage_cache = [self._parse_storage_entry(e) for e in entries]
+            if not raw:
+                continue
+            entries = raw if isinstance(raw, list) else [raw]
+            parsed = [self._parse_storage_entry(e) for e in entries]
+            # Only accept entries that actually carry capacity data
+            if any(e.get("total_gb") for e in parsed):
+                self.storage_cache = parsed
                 return
-        _LOGGER.debug("StorageDeviceInfo not available on this device")
+        _LOGGER.debug(
+            "HDD capacity info not available on %s (tried %s, %s, %s)",
+            self.entry.data.get("host", "device"),
+            CONF_NAME_STORAGE,
+            CONF_NAME_STORAGE_ALT,
+            CONF_NAME_STORAGE_LEGACY,
+        )
 
     @staticmethod
     def _parse_storage_entry(entry: dict) -> dict[str, Any]:
@@ -337,10 +348,16 @@ class XMEyeCoordinator:
             return
         if not isinstance(raw, dict):
             return
+        # The "General" config is a nested object.  Top-level keys are sub-sections
+        # (AdaptEncode, AutoLogin, …).  Device name lives inside the inner "General"
+        # sub-section; firmware/serial may be at the top level on some firmwares.
+        inner = raw.get("General", {}) if isinstance(raw, dict) else {}
         self.device_info_cache = {
-            "firmware": raw.get("Firmware") or raw.get("Version"),
-            "serial": raw.get("Serial") or raw.get("SerialNo"),
-            "model": raw.get("MachineName") or self.device_type,
+            "firmware": (raw.get("Firmware") or raw.get("Version")
+                         or inner.get("Firmware") or inner.get("Version")),
+            "serial": (raw.get("Serial") or raw.get("SerialNo")
+                       or inner.get("Serial") or inner.get("SerialNo")),
+            "model": raw.get("MachineName") or inner.get("MachineName") or self.device_type,
         }
 
     def _handle_event(self, event: AlarmEvent) -> None:
