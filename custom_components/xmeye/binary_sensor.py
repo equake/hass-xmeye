@@ -3,18 +3,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from collections.abc import Callable
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
     BinarySensorEntityDescription,
 )
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import XMEyeConfigEntry
 from .coordinator import XMEyeCoordinator
+from .entity import XMEyeEntity
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -74,20 +74,15 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: XMEyeCoordinator = entry.runtime_data
-
-    entities = [
+    async_add_entities([
         XMEyeBinarySensor(coordinator, channel, description)
         for channel in range(coordinator.channel_count)
         for description in _SENSOR_TYPES
-    ]
-    async_add_entities(entities)
+    ])
 
 
-class XMEyeBinarySensor(BinarySensorEntity):
-    """Binary sensor representing a single alarm event on one camera channel."""
-
-    _attr_has_entity_name = True
-    _attr_should_poll = False
+class XMEyeBinarySensor(XMEyeEntity, BinarySensorEntity):
+    """Binary sensor for one alarm event type on one camera channel."""
 
     def __init__(
         self,
@@ -95,43 +90,15 @@ class XMEyeBinarySensor(BinarySensorEntity):
         channel: int,
         description: XMEyeSensorDescription,
     ) -> None:
-        self._coordinator = coordinator
+        super().__init__(coordinator)
         self._channel = channel
         self._description = description
-        self._remove_listener: Callable[[], None] | None = None
-
-        entry = coordinator.entry
-        self._attr_unique_id = f"{entry.entry_id}_ch{channel}_{description.key}"
         self.entity_description = description
-
-    @property
-    def device_info(self):
-        return self._coordinator.device_info
-
-    @property
-    def name(self) -> str:
-        return f"CH{self._channel + 1} {self._description.translation_key.replace('_', ' ').title()}"
-
-    @property
-    def available(self) -> bool:
-        return self._coordinator.connected
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_ch{channel}_{description.key}"
+        self._attr_translation_placeholders = {"channel": str(channel + 1)}
 
     @property
     def is_on(self) -> bool:
         return self._coordinator.states.get(
             (self._channel, self._description.event_type), False
         )
-
-    async def async_added_to_hass(self) -> None:
-        self._remove_listener = self._coordinator.async_add_listener(
-            self._handle_update
-        )
-
-    async def async_will_remove_from_hass(self) -> None:
-        if self._remove_listener:
-            self._remove_listener()
-            self._remove_listener = None
-
-    @callback
-    def _handle_update(self) -> None:
-        self.async_write_ha_state()

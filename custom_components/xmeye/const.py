@@ -55,3 +55,5 @@ ALL_EVENT_TYPES = [
 ]
 
 RECONNECT_DELAY = 30  # seconds between reconnection attempts
+
+CONFIG_ENTRY_VERSION = 1

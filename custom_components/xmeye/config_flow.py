@@ -14,6 +14,7 @@ import voluptuous as vol
 
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNAME
+from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
@@ -23,6 +24,7 @@ from homeassistant.helpers.selector import (
 from .client import XMEyeAuthError, XMEyeClient
 from .const import (
     CONF_CHANNEL_COUNT,
+    CONFIG_ENTRY_VERSION,
     CONF_DEVICE_TYPE,
     DEFAULT_PORT,
     DEFAULT_USERNAME,
@@ -120,7 +122,7 @@ async def _test_credentials(
 class XMEyeConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for XMEye/Sofia devices."""
 
-    VERSION = 1
+    VERSION = CONFIG_ENTRY_VERSION
 
     def __init__(self) -> None:
         super().__init__()
@@ -231,4 +233,115 @@ class XMEyeConfigFlow(ConfigFlow, domain=DOMAIN):
                 }
             ),
             description_placeholders={"found": str(len(self._discovered))},
+        )
+
+    # ------------------------------------------------------------------
+    # Reconfigure — update connection settings post-setup
+    # ------------------------------------------------------------------
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        reconfigure_entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            host = user_input[CONF_HOST].strip()
+            port = user_input[CONF_PORT]
+            username = user_input[CONF_USERNAME].strip()
+            password = user_input[CONF_PASSWORD] or reconfigure_entry.data[CONF_PASSWORD]
+
+            await self.async_set_unique_id(f"{host}:{port}")
+            self._abort_if_unique_id_mismatch()
+
+            try:
+                extra = await asyncio.wait_for(
+                    _test_credentials(host, port, username, password), timeout=15.0
+                )
+            except XMEyeAuthError:
+                errors["base"] = "invalid_auth"
+            except (asyncio.TimeoutError, TimeoutError, OSError):
+                errors["base"] = "cannot_connect"
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception("Unexpected error during XMEye reconfigure")
+                errors["base"] = "unknown"
+            else:
+                return self.async_update_reload_and_abort(
+                    reconfigure_entry,
+                    data={
+                        CONF_HOST: host,
+                        CONF_PORT: port,
+                        CONF_USERNAME: username,
+                        CONF_PASSWORD: password,
+                        **extra,
+                    },
+                )
+
+        current = reconfigure_entry.data
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema({
+                vol.Required(CONF_HOST, default=current[CONF_HOST]): str,
+                vol.Optional(CONF_PORT, default=current[CONF_PORT]): vol.All(
+                    int, vol.Range(min=1, max=65535)
+                ),
+                vol.Optional(CONF_USERNAME, default=current[CONF_USERNAME]): str,
+                vol.Optional(CONF_PASSWORD, default=""): str,
+            }),
+            errors=errors,
+            description_placeholders={"host": current[CONF_HOST]},
+        )
+
+    # ------------------------------------------------------------------
+    # Reauth — recover from credential failure
+    # ------------------------------------------------------------------
+
+    async def async_step_reauth(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        reauth_entry = self._get_reauth_entry()
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            host = reauth_entry.data[CONF_HOST]
+            port = reauth_entry.data[CONF_PORT]
+            username = user_input[CONF_USERNAME].strip()
+            password = user_input[CONF_PASSWORD]
+
+            try:
+                extra = await asyncio.wait_for(
+                    _test_credentials(host, port, username, password), timeout=15.0
+                )
+            except XMEyeAuthError:
+                errors["base"] = "invalid_auth"
+            except (asyncio.TimeoutError, TimeoutError, OSError):
+                errors["base"] = "cannot_connect"
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception("Unexpected error during XMEye reauth")
+                errors["base"] = "unknown"
+            else:
+                return self.async_update_reload_and_abort(
+                    reauth_entry,
+                    data={
+                        **reauth_entry.data,
+                        CONF_USERNAME: username,
+                        CONF_PASSWORD: password,
+                        **extra,
+                    },
+                    reason="reauth_successful",
+                )
+
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=vol.Schema({
+                vol.Required(CONF_USERNAME, default=reauth_entry.data[CONF_USERNAME]): str,
+                vol.Required(CONF_PASSWORD, default=""): str,
+            }),
+            errors=errors,
+            description_placeholders={"host": reauth_entry.data[CONF_HOST]},
         )

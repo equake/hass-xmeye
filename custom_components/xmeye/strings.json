@@ -17,6 +17,24 @@
         "data": {
           "host": "Device"
         }
+      },
+      "reconfigure": {
+        "title": "Reconfigure XMEye / Sofia Device",
+        "description": "Update the connection settings for this device.",
+        "data": {
+          "host": "Host / IP address",
+          "port": "Port",
+          "username": "Username",
+          "password": "New password (leave blank to keep current)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate XMEye / Sofia",
+        "description": "Your credentials for {host} are no longer valid. Enter new credentials.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
       }
     },
     "error": {
@@ -26,25 +44,27 @@
       "unknown": "Unexpected error — check the Home Assistant logs"
     },
     "abort": {
-      "already_configured": "This device is already configured"
+      "already_configured": "This device is already configured",
+      "reauth_successful": "Reauthentication was successful",
+      "unique_id_mismatch": "The host/port does not match the configured device"
     }
   },
   "entity": {
     "binary_sensor": {
-      "motion": { "name": "Motion" },
-      "video_loss": { "name": "Video Loss" },
-      "video_blind": { "name": "Video Blind" },
-      "alarm_input": { "name": "Alarm Input" },
-      "io_alarm": { "name": "I/O Alarm" },
-      "cross_line": { "name": "Cross Line" },
-      "intrusion": { "name": "Intrusion" }
+      "motion": { "name": "CH{channel} Motion" },
+      "video_loss": { "name": "CH{channel} Video Loss" },
+      "video_blind": { "name": "CH{channel} Video Blind" },
+      "alarm_input": { "name": "CH{channel} Alarm Input" },
+      "io_alarm": { "name": "CH{channel} I/O Alarm" },
+      "cross_line": { "name": "CH{channel} Cross Line" },
+      "intrusion": { "name": "CH{channel} Intrusion" }
     },
     "camera": {
       "camera": { "name": "Camera" }
     },
     "switch": {
-      "motion_detection": { "name": "Motion Detection" },
-      "recording": { "name": "Recording" }
+      "motion_detection": { "name": "CH{channel} Motion Detection" },
+      "recording": { "name": "CH{channel} Recording" }
     },
     "button": {
       "reboot": { "name": "Reboot" }

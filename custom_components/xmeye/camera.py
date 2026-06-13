@@ -4,19 +4,19 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Callable
 
 import aiohttp
 
 from homeassistant.components.camera import Camera, CameraEntityFeature
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import XMEyeConfigEntry
 from .client import sofia_hash
 from .coordinator import XMEyeCoordinator
+from .entity import XMEyeEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -63,18 +63,15 @@ async def async_setup_entry(
     )
 
 
-class XMEyeCamera(Camera):
+class XMEyeCamera(XMEyeEntity, Camera):
     """Camera entity providing RTSP stream, HTTP snapshot, and PTZ control."""
 
-    _attr_has_entity_name = True
     _attr_translation_key = "camera"
     _attr_supported_features = CameraEntityFeature.STREAM
 
     def __init__(self, coordinator: XMEyeCoordinator, channel: int) -> None:
-        super().__init__()
-        self._coordinator = coordinator
+        super().__init__(coordinator)
         self._channel = channel
-        self._remove_listener: Callable[[], None] | None = None
 
         entry = coordinator.entry
         self._host: str = entry.data[CONF_HOST]
@@ -82,19 +79,11 @@ class XMEyeCamera(Camera):
         self._password: str = entry.data[CONF_PASSWORD]
 
         self._attr_unique_id = f"{entry.entry_id}_ch{channel}_camera"
-        self._snapshot_path: str | None = None  # cached working snapshot path
+        self._snapshot_path: str | None = None
 
     @property
     def name(self) -> str:
         return f"CH{self._channel + 1}"
-
-    @property
-    def device_info(self):
-        return self._coordinator.device_info
-
-    @property
-    def available(self) -> bool:
-        return self._coordinator.connected
 
     async def async_camera_image(
         self, width: int | None = None, height: int | None = None
@@ -103,7 +92,6 @@ class XMEyeCamera(Camera):
         session = async_get_clientsession(self.hass)
         auth = aiohttp.BasicAuth(self._username, sofia_hash(self._password))
 
-        # Try cached path first, then all known paths
         paths = (
             [self._snapshot_path] + _SNAPSHOT_PATHS
             if self._snapshot_path
@@ -116,22 +104,16 @@ class XMEyeCamera(Camera):
             path = path_tpl.format(channel=self._channel)
             url = f"http://{self._host}{path}"
             try:
-                async with session.get(
-                    url, auth=auth, timeout=_SNAPSHOT_TIMEOUT
-                ) as resp:
+                async with session.get(url, auth=auth, timeout=_SNAPSHOT_TIMEOUT) as resp:
                     if resp.status == 200:
-                        content_type = resp.headers.get("Content-Type", "")
-                        if "image" in content_type or resp.status == 200:
-                            data = await resp.read()
-                            if data:
-                                self._snapshot_path = path_tpl  # cache working path
-                                return data
+                        data = await resp.read()
+                        if data:
+                            self._snapshot_path = path_tpl
+                            return data
             except (aiohttp.ClientError, asyncio.TimeoutError) as err:
                 _LOGGER.debug("Snapshot attempt failed for %s: %s", url, err)
 
-        _LOGGER.debug(
-            "All snapshot URLs failed for ch%d on %s", self._channel + 1, self._host
-        )
+        _LOGGER.debug("All snapshot URLs failed for ch%d on %s", self._channel + 1, self._host)
         return None
 
     async def stream_source(self) -> str | None:
@@ -167,20 +149,6 @@ class XMEyeCamera(Camera):
 
         step = min(max(int(speed or 5), 1), 8)
         channel = self._channel
-
         await self._coordinator.async_run_command(
             lambda c: c.ptz_control(channel, command, step)
         )
-
-    async def async_added_to_hass(self) -> None:
-        await super().async_added_to_hass()
-        self._remove_listener = self._coordinator.async_add_listener(self._handle_update)
-
-    async def async_will_remove_from_hass(self) -> None:
-        if self._remove_listener:
-            self._remove_listener()
-            self._remove_listener = None
-
-    @callback
-    def _handle_update(self) -> None:
-        self.async_write_ha_state()

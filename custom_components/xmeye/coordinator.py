@@ -14,6 +14,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.event import async_track_time_interval
 
+from homeassistant.exceptions import ConfigEntryAuthFailed
+
 from .client import XMEyeClient, XMEyeAuthError, AlarmEvent
 from .const import (
     CONF_CHANNEL_COUNT,
@@ -272,7 +274,7 @@ class XMEyeCoordinator:
                     self.entry.data[CONF_HOST],
                     err,
                 )
-                await asyncio.sleep(RECONNECT_DELAY * 4)
+                raise ConfigEntryAuthFailed(str(err)) from err
             except Exception as err:  # noqa: BLE001
                 _LOGGER.warning(
                     "XMEye connection lost for %s: %s – retrying in %ds",

@@ -17,6 +17,24 @@
         "data": {
           "host": "Dispositivo"
         }
+      },
+      "reconfigure": {
+        "title": "Reconfigurar Dispositivo XMEye / Sofia",
+        "description": "Atualize as configurações de conexão deste dispositivo.",
+        "data": {
+          "host": "Host / Endereço IP",
+          "port": "Porta",
+          "username": "Usuário",
+          "password": "Nova senha (deixe em branco para manter a atual)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reautenticar XMEye / Sofia",
+        "description": "Suas credenciais para {host} não são mais válidas. Insira novas credenciais.",
+        "data": {
+          "username": "Usuário",
+          "password": "Senha"
+        }
       }
     },
     "error": {
@@ -26,25 +44,27 @@
       "unknown": "Erro inesperado — consulte os logs do Home Assistant"
     },
     "abort": {
-      "already_configured": "Este dispositivo já está configurado"
+      "already_configured": "Este dispositivo já está configurado",
+      "reauth_successful": "Reautenticação realizada com sucesso",
+      "unique_id_mismatch": "O host/porta não corresponde ao dispositivo configurado"
     }
   },
   "entity": {
     "binary_sensor": {
-      "motion": { "name": "Detecção de Movimento" },
-      "video_loss": { "name": "Perda de Vídeo" },
-      "video_blind": { "name": "Vídeo Bloqueado" },
-      "alarm_input": { "name": "Entrada de Alarme" },
-      "io_alarm": { "name": "Alarme I/O" },
-      "cross_line": { "name": "Linha Cruzada" },
-      "intrusion": { "name": "Intrusão" }
+      "motion": { "name": "Canal {channel} Movimento" },
+      "video_loss": { "name": "Canal {channel} Perda de Vídeo" },
+      "video_blind": { "name": "Canal {channel} Vídeo Bloqueado" },
+      "alarm_input": { "name": "Canal {channel} Entrada de Alarme" },
+      "io_alarm": { "name": "Canal {channel} Alarme I/O" },
+      "cross_line": { "name": "Canal {channel} Linha Cruzada" },
+      "intrusion": { "name": "Canal {channel} Intrusão" }
     },
     "camera": {
       "camera": { "name": "Câmera" }
     },
     "switch": {
-      "motion_detection": { "name": "Detecção de Movimento" },
-      "recording": { "name": "Gravação" }
+      "motion_detection": { "name": "Canal {channel} Detecção de Movimento" },
+      "recording": { "name": "Canal {channel} Gravação" }
     },
     "button": {
       "reboot": { "name": "Reiniciar" }

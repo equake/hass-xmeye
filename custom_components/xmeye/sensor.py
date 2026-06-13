@@ -12,11 +12,12 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import EntityCategory, UnitOfInformation
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import XMEyeConfigEntry
 from .coordinator import XMEyeCoordinator
+from .entity import XMEyeEntity
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -72,26 +73,18 @@ async def async_setup_entry(
     )
 
 
-class XMEyeSensorEntity(SensorEntity):
+class XMEyeSensorEntity(XMEyeEntity, SensorEntity):
     """Sensor showing device-level information from an XMEye device."""
-
-    _attr_has_entity_name = True
-    _attr_should_poll = False
 
     def __init__(
         self,
         coordinator: XMEyeCoordinator,
         description: XMEyeSensorDescription,
     ) -> None:
-        self._coordinator = coordinator
+        super().__init__(coordinator)
         self._description = description
         self.entity_description = description
-        self._remove_listener: Callable[[], None] | None = None
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{description.key}"
-
-    @property
-    def device_info(self):
-        return self._coordinator.device_info
 
     @property
     def native_value(self) -> object:
@@ -99,15 +92,3 @@ class XMEyeSensorEntity(SensorEntity):
             return self._description.value_fn(self._coordinator)
         except Exception:  # noqa: BLE001
             return None
-
-    async def async_added_to_hass(self) -> None:
-        self._remove_listener = self._coordinator.async_add_listener(self._handle_update)
-
-    async def async_will_remove_from_hass(self) -> None:
-        if self._remove_listener:
-            self._remove_listener()
-            self._remove_listener = None
-
-    @callback
-    def _handle_update(self) -> None:
-        self.async_write_ha_state()
