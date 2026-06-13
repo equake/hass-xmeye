@@ -8,6 +8,9 @@ DEFAULT_USERNAME = "admin"
 
 CONF_CHANNEL_COUNT = "channel_count"
 CONF_DEVICE_TYPE = "device_type"
+CONF_MOTION_CLEAR_DELAY = "motion_clear_delay"
+
+DEFAULT_MOTION_CLEAR_DELAY = 30  # seconds; 0 = disable debounce
 
 # DVRIP message IDs
 MSG_LOGIN = 1000
