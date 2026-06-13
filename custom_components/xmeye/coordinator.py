@@ -8,11 +8,13 @@ from collections.abc import Awaitable, Callable
 from datetime import timedelta
 from typing import Any, TypeVar
 
+import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_time_interval
 
 from .client import AlarmEvent, XMEyeAuthError, XMEyeClient
@@ -27,13 +29,16 @@ from .const import (
     CONF_NAME_STORAGE_ALT,
     CONF_NAME_STORAGE_LEGACY,
     DOMAIN,
+    MIN_SNAPSHOT_BYTES,
     RECONNECT_DELAY,
+    SIGNAL_NEW_CHANNEL,
 )
 
 _LOGGER = logging.getLogger(__name__)
 _T = TypeVar("_T")
 
 _STORAGE_REFRESH_INTERVAL = timedelta(seconds=60)
+_CHANNEL_RECHECK_INTERVAL = timedelta(minutes=5)
 
 # Some IPC/DVR firmwares use different names for the same alarm event type.
 # Normalize them to the canonical names used in binary_sensor.py so that
@@ -74,16 +79,26 @@ class XMEyeCoordinator:
         # Encode config name that worked for this device (cached after first use)
         self._encode_cfg_name: str | None = None
 
+        # Channels confirmed to have a camera connected.
+        # Populated by HTTP probe at startup; updated by events and periodic recheck.
+        self.connected_channels: set[int] = set()
+
         self._listeners: list[Callable[[], None]] = []
         self._task: asyncio.Task | None = None
         self._command_lock = asyncio.Lock()
         self._unsub_refresh: Callable[[], None] | None = None
+        self._unsub_channel_check: Callable[[], None] | None = None
 
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
 
     async def async_setup(self) -> None:
+        # Probe HTTP snapshot to determine which channels have cameras.
+        # Runs before async_forward_entry_setups() so platforms can use
+        # connected_channels to create only the relevant entities.
+        await self._detect_connected_channels()
+
         self._task = self.hass.async_create_background_task(
             self._connection_loop(),
             name=f"xmeye_{self.entry.entry_id}",
@@ -94,8 +109,16 @@ class XMEyeCoordinator:
             self._async_refresh_storage,
             _STORAGE_REFRESH_INTERVAL,
         )
+        self._unsub_channel_check = async_track_time_interval(
+            self.hass,
+            self._async_recheck_channels,
+            _CHANNEL_RECHECK_INTERVAL,
+        )
 
     async def async_shutdown(self) -> None:
+        if self._unsub_channel_check:
+            self._unsub_channel_check()
+            self._unsub_channel_check = None
         if self._unsub_refresh:
             self._unsub_refresh()
             self._unsub_refresh = None
@@ -230,6 +253,92 @@ class XMEyeCoordinator:
             await client.config_set(cfg_name, entries)
 
         await self.async_run_command(_set)
+
+    # ------------------------------------------------------------------
+    # Channel detection (which slots have a camera connected)
+    # ------------------------------------------------------------------
+
+    async def _probe_channel_http(
+        self,
+        session: aiohttp.ClientSession,
+        host: str,
+        user: str,
+        pwd: str,
+        channel: int,
+    ) -> bool:
+        """Return True if a real JPEG frame is served for this channel."""
+        ch1 = channel + 1
+        url = (
+            f"http://{host}/webcapture.jpg"
+            f"?command=snap&channel={ch1}&user={user}&password={pwd}"
+        )
+        try:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                data = await resp.read()
+                return data[:3] == b"\xff\xd8\xff" and len(data) > MIN_SNAPSHOT_BYTES
+        except Exception:  # noqa: BLE001
+            return False
+
+    async def _detect_connected_channels(self) -> None:
+        """Probe all channels concurrently and populate connected_channels.
+
+        Falls back to all channels if HTTP is not available on the device.
+        """
+        host = self.entry.data[CONF_HOST]
+        user = self.entry.data[CONF_USERNAME]
+        pwd = self.entry.data[CONF_PASSWORD]
+
+        async with aiohttp.ClientSession() as session:
+            results = await asyncio.gather(
+                *[
+                    self._probe_channel_http(session, host, user, pwd, ch)
+                    for ch in range(self.channel_count)
+                ],
+                return_exceptions=True,
+            )
+
+        found = {ch for ch, ok in enumerate(results) if ok is True}
+        if found:
+            self.connected_channels = found
+            _LOGGER.debug(
+                "Connected channels on %s: %s",
+                host,
+                sorted(ch + 1 for ch in found),
+            )
+        else:
+            # HTTP snapshot not available — assume all channels have cameras.
+            self.connected_channels = set(range(self.channel_count))
+            _LOGGER.debug(
+                "Channel probe failed for %s — assuming all %d channels connected",
+                host,
+                self.channel_count,
+            )
+
+    async def _async_recheck_channels(self, _now: object = None) -> None:
+        """Periodically probe channels not yet confirmed, dispatch signal for new ones."""
+        unchecked = set(range(self.channel_count)) - self.connected_channels
+        if not unchecked:
+            return
+
+        host = self.entry.data[CONF_HOST]
+        user = self.entry.data[CONF_USERNAME]
+        pwd = self.entry.data[CONF_PASSWORD]
+
+        async with aiohttp.ClientSession() as session:
+            results = await asyncio.gather(
+                *[self._probe_channel_http(session, host, user, pwd, ch) for ch in unchecked],
+                return_exceptions=True,
+            )
+
+        for ch, ok in zip(sorted(unchecked), results, strict=False):
+            if ok is True:
+                self.connected_channels.add(ch)
+                _LOGGER.debug("New camera detected on channel %d", ch + 1)
+                async_dispatcher_send(
+                    self.hass,
+                    SIGNAL_NEW_CHANNEL.format(self.entry.entry_id),
+                    ch,
+                )
 
     # ------------------------------------------------------------------
     # Storage refresh (periodic + initial)
@@ -378,6 +487,17 @@ class XMEyeCoordinator:
 
     def _handle_event(self, event: AlarmEvent) -> None:
         event_type = _EVENT_ALIASES.get(event.event_type, event.event_type)
+
+        # Any event from a channel is proof that a camera is connected there.
+        if event.channel not in self.connected_channels:
+            self.connected_channels.add(event.channel)
+            _LOGGER.debug("Camera on channel %d confirmed via alarm event", event.channel + 1)
+            async_dispatcher_send(
+                self.hass,
+                SIGNAL_NEW_CHANNEL.format(self.entry.entry_id),
+                event.channel,
+            )
+
         key = (event.channel, event_type)
         if self.states.get(key) != event.active:
             self.states[key] = event.active
