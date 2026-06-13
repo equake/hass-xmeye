@@ -44,11 +44,13 @@ _CHANNEL_RECHECK_INTERVAL = timedelta(minutes=5)
 # Normalize them to the canonical names used in binary_sensor.py so that
 # sensors fire regardless of which firmware variant sent the event.
 _EVENT_ALIASES: dict[str, str] = {
-    "VideoMotion": "MotionDetect",     # IPC firmware variant
-    "Motion": "MotionDetect",          # rare short form
-    "VideoLoss": "VideoLost",          # some firmwares spell it without 't'
-    "BlindDetect": "HideAlarm",        # alternate name for video blind/tamper
-    "LocalAlarm": "AlarmLocal",        # alternate order seen on some DVRs
+    "VideoMotion": "MotionDetect",              # IPC firmware variant
+    "Motion": "MotionDetect",                   # rare short form
+    "appEventHumanDetectAlarm": "MotionDetect", # AI human-detect on XMEye IPC/NVR
+    "FaceDetect": "MotionDetect",               # face-detect on HVR/NVR firmware
+    "VideoLoss": "VideoLost",                   # some firmwares spell it without 't'
+    "BlindDetect": "HideAlarm",                 # alternate name for video blind/tamper
+    "LocalAlarm": "AlarmLocal",                 # alternate order seen on some DVRs
 }
 
 
