@@ -34,6 +34,7 @@ _PTZ_MAP: dict[tuple[str | None, str | None, str | None], str] = {
 
 _SNAPSHOT_PATHS = [
     "/snap.jpg?channel={channel}",
+    "/webcapture.jpg?command=snap&channel={channel}",
     "/web/cgi-bin/hi3510/snapPicture.cgi?chn={channel}",
     "/cgi-bin/snapshot.cgi?chn={channel}&q=0",
 ]
