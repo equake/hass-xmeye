@@ -34,16 +34,60 @@ _PTZ_MAP: dict[tuple[str | None, str | None, str | None], str] = {
     (None, None, "OUT"): "ZoomWide",
 }
 
-# Snapshot paths tried in order; first to return a valid JPEG is cached.
+# Snapshot paths tried in order; first to return a valid JPEG frame is cached.
+# Placeholders: {channel} = 0-based index, {user} / {password} = plain-text credentials.
 _SNAPSHOT_PATHS = [
-    "/snap.jpg?channel={channel}",
+    # NVR / DVR firmwares: requires plain-text credentials in query string
+    "/webcapture.jpg?command=snap&channel={channel}&user={user}&password={password}",
+    # IPC cameras: accepts the path without auth (factory-default empty password)
     "/webcapture.jpg?command=snap&channel={channel}",
+    # Legacy paths still found on some older firmwares
+    "/snap.jpg?channel={channel}",
     "/web/cgi-bin/hi3510/snapPicture.cgi?chn={channel}",
     "/cgi-bin/snapshot.cgi?chn={channel}&q=0",
 ]
 
 _JPEG_MAGIC = b"\xff\xd8\xff"
 _SNAPSHOT_TIMEOUT = aiohttp.ClientTimeout(total=5)
+
+# Minimum dimensions to accept a JPEG as a real video frame.
+# Some firmwares return a tiny placeholder icon (e.g. 36x25) via /snap.jpg
+# that passes the JPEG magic check but is not a real frame.
+_MIN_SNAPSHOT_WIDTH = 320
+_MIN_SNAPSHOT_HEIGHT = 240
+
+
+def _jpeg_frame_size(data: bytes) -> tuple[int, int] | None:
+    """Return (width, height) parsed from JPEG SOF marker, or None on failure.
+
+    Uses only stdlib — no Pillow dependency required.
+    """
+    if len(data) < 4 or data[:2] != b"\xff\xd8":
+        return None
+    i = 2
+    while i < len(data) - 8:
+        if data[i] != 0xFF:
+            break
+        marker = data[i + 1]
+        if marker in (0xC0, 0xC1, 0xC2):  # SOF0 / SOF1 / SOF2
+            h = (data[i + 5] << 8) | data[i + 6]
+            w = (data[i + 7] << 8) | data[i + 8]
+            return w, h
+        if i + 3 >= len(data):
+            break
+        seg_len = (data[i + 2] << 8) | data[i + 3]
+        i += 2 + seg_len
+    return None
+
+
+def _is_valid_frame(data: bytes) -> bool:
+    """Return True if data is a JPEG with dimensions >= minimum video frame size."""
+    if not data or data[:3] != _JPEG_MAGIC:
+        return False
+    size = _jpeg_frame_size(data)
+    if size is None:
+        return False
+    return size[0] >= _MIN_SNAPSHOT_WIDTH and size[1] >= _MIN_SNAPSHOT_HEIGHT
 
 _RTSP_PORT = 554
 _RTSP_PROBE_TIMEOUT = 4.0
@@ -185,29 +229,37 @@ class XMEyeCamera(XMEyeEntity, Camera):
     # Snapshot discovery
     # ------------------------------------------------------------------
 
+    def _resolve_path(self, path_tpl: str) -> str:
+        """Expand a snapshot path template with this camera's parameters."""
+        return path_tpl.format(
+            channel=self._channel,
+            user=self._username,
+            password=self._password,
+        )
+
     async def _find_snapshot_path(
         self,
         session: aiohttp.ClientSession,
         auth: aiohttp.BasicAuth,
     ) -> None:
-        """Try each snapshot path and cache the first that returns a valid JPEG."""
+        """Try each snapshot path and cache the first that returns a real JPEG frame."""
         if self._snapshot_path is not None:
             return
         async with self._snapshot_lock:
             if self._snapshot_path is not None:
                 return
             for path_tpl in _SNAPSHOT_PATHS:
-                url = f"http://{self._host}" + path_tpl.format(channel=self._channel)
+                url = f"http://{self._host}" + self._resolve_path(path_tpl)
                 try:
                     async with session.get(url, auth=auth, timeout=_SNAPSHOT_TIMEOUT) as resp:
                         if resp.status == 200:
                             data = await resp.read()
-                            # Some devices return HTTP 200 with an HTML 404 body.
-                            if data and data[:3] == _JPEG_MAGIC:
+                            if _is_valid_frame(data):
                                 self._snapshot_path = path_tpl
+                                size = _jpeg_frame_size(data)
                                 _LOGGER.debug(
-                                    "Snapshot URL cached for ch%d: %s",
-                                    self._channel + 1, url,
+                                    "Snapshot URL cached for ch%d (%dx%d): %s",
+                                    self._channel + 1, size[0], size[1], url,  # type: ignore[index]
                                 )
                                 return
                 except (TimeoutError, aiohttp.ClientError):
@@ -274,12 +326,12 @@ class XMEyeCamera(XMEyeEntity, Camera):
         if self._snapshot_path is None:
             return None
 
-        url = f"http://{self._host}" + self._snapshot_path.format(channel=self._channel)
+        url = f"http://{self._host}" + self._resolve_path(self._snapshot_path)
         try:
             async with session.get(url, auth=auth, timeout=_SNAPSHOT_TIMEOUT) as resp:
                 if resp.status == 200:
                     data = await resp.read()
-                    if data and data[:3] == _JPEG_MAGIC:
+                    if _is_valid_frame(data):
                         return data
         except (TimeoutError, aiohttp.ClientError) as err:
             _LOGGER.debug("Snapshot failed for %s: %s", url, err)
