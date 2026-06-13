@@ -1,0 +1,360 @@
+"""Coordinator for XMEye/Sofia alarm integration."""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from collections.abc import Awaitable, Callable
+from datetime import timedelta
+from typing import Any, TypeVar
+
+from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNAME
+from homeassistant.core import HomeAssistant
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.event import async_track_time_interval
+
+from .client import XMEyeClient, XMEyeAuthError, AlarmEvent
+from .const import (
+    CONF_CHANNEL_COUNT,
+    CONF_DEVICE_TYPE,
+    CONF_NAME_ENCODE,
+    CONF_NAME_ENCODE_ALT,
+    CONF_NAME_GENERAL,
+    CONF_NAME_MOTION,
+    CONF_NAME_STORAGE,
+    CONF_NAME_STORAGE_ALT,
+    DOMAIN,
+    RECONNECT_DELAY,
+)
+
+_LOGGER = logging.getLogger(__name__)
+_T = TypeVar("_T")
+
+_STORAGE_REFRESH_INTERVAL = timedelta(seconds=60)
+
+
+class XMEyeCoordinator:
+    """Manages the persistent connection to one XMEye/Sofia device.
+
+    All platforms register listeners here. Alarm events arrive via the
+    persistent connection; one-shot commands (PTZ, config get/set, reboot)
+    use short-lived secondary connections via async_run_command().
+    """
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        self.hass = hass
+        self.entry = entry
+
+        # Persisted across reconnects
+        self.channel_count: int = entry.data.get(CONF_CHANNEL_COUNT, 1)
+        self.device_type: str = entry.data.get(CONF_DEVICE_TYPE, "XMEye Device")
+        self.connected: bool = False
+
+        # (channel_index, event_type_string) → True/False
+        self.states: dict[tuple[int, str], bool] = {}
+
+        # Cached device & storage info (populated after first login)
+        self.device_info_cache: dict[str, str | None] = {}
+        self.storage_cache: list[dict[str, Any]] = []
+
+        # Encode config name that worked for this device (cached after first use)
+        self._encode_cfg_name: str | None = None
+
+        self._listeners: list[Callable[[], None]] = []
+        self._task: asyncio.Task | None = None
+        self._command_lock = asyncio.Lock()
+        self._unsub_refresh: Callable[[], None] | None = None
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
+
+    async def async_setup(self) -> None:
+        self._task = self.hass.async_create_background_task(
+            self._connection_loop(),
+            name=f"xmeye_{self.entry.entry_id}",
+            eager_start=True,
+        )
+        self._unsub_refresh = async_track_time_interval(
+            self.hass,
+            self._async_refresh_storage,
+            _STORAGE_REFRESH_INTERVAL,
+        )
+
+    async def async_shutdown(self) -> None:
+        if self._unsub_refresh:
+            self._unsub_refresh()
+            self._unsub_refresh = None
+        if self._task:
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+            self._task = None
+
+    # ------------------------------------------------------------------
+    # Shared DeviceInfo (used by all entity platforms)
+    # ------------------------------------------------------------------
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return DeviceInfo(
+            identifiers={(DOMAIN, self.entry.entry_id)},
+            name=self.device_type or "XMEye Device",
+            manufacturer="Xiongmai / XMEye",
+            model=self.device_info_cache.get("model") or self.device_type,
+            sw_version=self.device_info_cache.get("firmware"),
+            serial_number=self.device_info_cache.get("serial"),
+        )
+
+    # ------------------------------------------------------------------
+    # Listener registration
+    # ------------------------------------------------------------------
+
+    def async_add_listener(self, callback: Callable[[], None]) -> Callable[[], None]:
+        """Register a state-change listener; returns a removal callable."""
+        self._listeners.append(callback)
+
+        def _remove() -> None:
+            try:
+                self._listeners.remove(callback)
+            except ValueError:
+                pass
+
+        return _remove
+
+    def _notify_listeners(self) -> None:
+        for cb in self._listeners:
+            try:
+                cb()
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception("Error in listener callback")
+
+    # ------------------------------------------------------------------
+    # Command execution (short-lived secondary connection)
+    # ------------------------------------------------------------------
+
+    async def async_run_command(
+        self, fn: Callable[[XMEyeClient], Awaitable[_T]]
+    ) -> _T:
+        """Open a short-lived authenticated connection, run fn(client), close.
+
+        Serialised by _command_lock so concurrent callers queue up safely.
+        """
+        host = self.entry.data[CONF_HOST]
+        port = self.entry.data[CONF_PORT]
+        username = self.entry.data[CONF_USERNAME]
+        password = self.entry.data[CONF_PASSWORD]
+
+        async with self._command_lock:
+            client = XMEyeClient(host, port, username, password)
+            try:
+                await client.connect()
+                await client.login()
+                return await fn(client)
+            finally:
+                await client.close()
+
+    # ------------------------------------------------------------------
+    # Config helpers (used by switch.py)
+    # ------------------------------------------------------------------
+
+    async def async_get_encode_cfg(self) -> tuple[str, list]:
+        """Return (config_name, channel_list) for the encode config."""
+        async def _get(client: XMEyeClient) -> tuple[str, list]:
+            for name in (CONF_NAME_ENCODE, CONF_NAME_ENCODE_ALT):
+                data = await client.config_get(name)
+                if data:
+                    self._encode_cfg_name = name
+                    return name, data if isinstance(data, list) else [data]
+            return CONF_NAME_ENCODE, []
+
+        return await self.async_run_command(_get)
+
+    async def async_set_motion_enabled(self, channel: int, enabled: bool) -> None:
+        async def _set(client: XMEyeClient) -> None:
+            data = await client.config_get(CONF_NAME_MOTION)
+            if not data:
+                return
+            entries = data if isinstance(data, list) else [data]
+            if channel < len(entries):
+                entries[channel]["Enable"] = enabled
+            await client.config_set(CONF_NAME_MOTION, entries)
+
+        await self.async_run_command(_set)
+
+    async def async_set_recording_enabled(self, channel: int, enabled: bool) -> None:
+        async def _set(client: XMEyeClient) -> None:
+            cfg_name = self._encode_cfg_name or CONF_NAME_ENCODE
+            data = await client.config_get(cfg_name)
+            if not data:
+                # try alternate
+                cfg_name_alt = CONF_NAME_ENCODE_ALT if cfg_name == CONF_NAME_ENCODE else CONF_NAME_ENCODE
+                data = await client.config_get(cfg_name_alt)
+                if data:
+                    cfg_name = cfg_name_alt
+                    self._encode_cfg_name = cfg_name
+            if not data:
+                _LOGGER.warning("Could not read encode config to set recording state")
+                return
+            entries = data if isinstance(data, list) else [data]
+            if channel < len(entries):
+                # Try common field paths
+                enc = entries[channel]
+                if "MainFormat" in enc:
+                    enc["MainFormat"].setdefault("Video", {})["Enable"] = enabled
+                elif "Video" in enc:
+                    enc["Video"]["Enable"] = enabled
+                else:
+                    enc["Enable"] = enabled
+            await client.config_set(cfg_name, entries)
+
+        await self.async_run_command(_set)
+
+    # ------------------------------------------------------------------
+    # Storage refresh (periodic + initial)
+    # ------------------------------------------------------------------
+
+    async def _async_refresh_storage(self, _now: object = None) -> None:
+        """Fetch storage info via a short-lived connection and notify listeners."""
+        try:
+            await self.async_run_command(self._fetch_storage)
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug("Storage refresh failed (device may be offline)")
+        else:
+            self._notify_listeners()
+
+    async def _fetch_storage(self, client: XMEyeClient) -> None:
+        for name in (CONF_NAME_STORAGE, CONF_NAME_STORAGE_ALT):
+            raw = await client.config_get(name)
+            if raw:
+                entries = raw if isinstance(raw, list) else [raw]
+                self.storage_cache = [self._parse_storage_entry(e) for e in entries]
+                return
+        _LOGGER.debug("StorageDeviceInfo not available on this device")
+
+    @staticmethod
+    def _parse_storage_entry(entry: dict) -> dict[str, Any]:
+        total_raw = entry.get("TotalSpace", 0)
+        used_raw = entry.get("UsedSpace", 0)
+        free_raw = entry.get("FreeSpace", 0)
+
+        # Devices report in different units (MB or sectors×512).
+        # Values > 100_000 are likely in MB; otherwise assume GB directly.
+        def to_gb(val: int | float) -> float:
+            if val > 100_000:
+                return round(val / 1024, 1)  # MB → GB
+            return float(val)
+
+        return {
+            "name": entry.get("Name", entry.get("StorageName", "HDD")),
+            "status": entry.get("Status", entry.get("State", "Unknown")),
+            "total_gb": to_gb(total_raw),
+            "used_gb": to_gb(used_raw),
+            "free_gb": to_gb(free_raw),
+        }
+
+    # ------------------------------------------------------------------
+    # Connection loop
+    # ------------------------------------------------------------------
+
+    async def _connection_loop(self) -> None:
+        while True:
+            try:
+                await self._run_once()
+            except asyncio.CancelledError:
+                raise
+            except XMEyeAuthError as err:
+                _LOGGER.error(
+                    "Authentication failed for %s – check credentials: %s",
+                    self.entry.data[CONF_HOST],
+                    err,
+                )
+                await asyncio.sleep(RECONNECT_DELAY * 4)
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.warning(
+                    "XMEye connection lost for %s: %s – retrying in %ds",
+                    self.entry.data[CONF_HOST],
+                    err,
+                    RECONNECT_DELAY,
+                )
+
+            if self.connected:
+                self.connected = False
+                self._notify_listeners()
+
+            await asyncio.sleep(RECONNECT_DELAY)
+
+    async def _run_once(self) -> None:
+        host = self.entry.data[CONF_HOST]
+        port = self.entry.data[CONF_PORT]
+        username = self.entry.data[CONF_USERNAME]
+        password = self.entry.data[CONF_PASSWORD]
+
+        client = XMEyeClient(host, port, username, password)
+        try:
+            await client.connect()
+            login_info = await client.login()
+
+            if login_info.channel_count != self.channel_count:
+                self.channel_count = login_info.channel_count
+            if login_info.device_type and login_info.device_type != self.device_type:
+                self.device_type = login_info.device_type
+
+            # Fetch device info and storage before entering the alarm loop
+            await self._fetch_device_info_direct(client)
+            await self._fetch_storage(client)
+
+            self.connected = True
+            self._notify_listeners()
+
+            await client.subscribe_alarms()
+
+            keepalive_task = asyncio.create_task(
+                self._keepalive_loop(client, login_info.keepalive_interval),
+                name=f"xmeye_keepalive_{self.entry.entry_id}",
+            )
+            try:
+                async for event in client.read_events():
+                    self._handle_event(event)
+            finally:
+                keepalive_task.cancel()
+                try:
+                    await keepalive_task
+                except asyncio.CancelledError:
+                    pass
+        finally:
+            await client.close()
+
+    async def _fetch_device_info_direct(self, client: XMEyeClient) -> None:
+        """Fetch General config using the already-logged-in alarm client."""
+        try:
+            raw = await client.config_get(CONF_NAME_GENERAL)
+        except Exception:  # noqa: BLE001
+            return
+        if not isinstance(raw, dict):
+            return
+        self.device_info_cache = {
+            "firmware": raw.get("Firmware") or raw.get("Version"),
+            "serial": raw.get("Serial") or raw.get("SerialNo"),
+            "model": raw.get("MachineName") or self.device_type,
+        }
+
+    def _handle_event(self, event: AlarmEvent) -> None:
+        key = (event.channel, event.event_type)
+        if self.states.get(key) != event.active:
+            self.states[key] = event.active
+            self._notify_listeners()
+
+    async def _keepalive_loop(self, client: XMEyeClient, interval: int) -> None:
+        effective_interval = max(10, interval - 5)
+        try:
+            while True:
+                await asyncio.sleep(effective_interval)
+                await client.keepalive()
+        except asyncio.CancelledError:
+            pass
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug("Keepalive error – main loop will handle reconnect")

@@ -1,0 +1,59 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "XMEye / Sofia Device",
+        "description": "Connect to an XMEye/Sofia DVR, NVR or IP camera. To auto-discover devices on your network, use the scan option.",
+        "data": {
+          "host": "Host / IP address",
+          "port": "Port",
+          "username": "Username",
+          "password": "Password"
+        }
+      },
+      "discovery": {
+        "title": "LAN Discovery",
+        "description": "Found {found} XMEye/Sofia device(s) on your network. Select one to configure.",
+        "data": {
+          "host": "Device"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect — check host and port",
+      "invalid_auth": "Invalid credentials — check username and password",
+      "discovery_no_devices": "No devices found on the network. Enter connection details manually.",
+      "unknown": "Unexpected error — check the Home Assistant logs"
+    },
+    "abort": {
+      "already_configured": "This device is already configured"
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "motion": { "name": "Motion" },
+      "video_loss": { "name": "Video Loss" },
+      "video_blind": { "name": "Video Blind" },
+      "alarm_input": { "name": "Alarm Input" },
+      "io_alarm": { "name": "I/O Alarm" },
+      "cross_line": { "name": "Cross Line" },
+      "intrusion": { "name": "Intrusion" }
+    },
+    "camera": {
+      "camera": { "name": "Camera" }
+    },
+    "switch": {
+      "motion_detection": { "name": "Motion Detection" },
+      "recording": { "name": "Recording" }
+    },
+    "button": {
+      "reboot": { "name": "Reboot" }
+    },
+    "sensor": {
+      "firmware": { "name": "Firmware Version" },
+      "hdd_total": { "name": "HDD Total" },
+      "hdd_used": { "name": "HDD Used" },
+      "hdd_status": { "name": "HDD Status" }
+    }
+  }
+}
