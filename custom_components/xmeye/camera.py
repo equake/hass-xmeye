@@ -35,13 +35,20 @@ _PTZ_MAP: dict[tuple[str | None, str | None, str | None], str] = {
 }
 
 # Snapshot paths tried in order; first to return a valid JPEG frame is cached.
-# Placeholders: {channel} = 0-based index, {user} / {password} = plain-text credentials.
+# Placeholders:
+#   {channel}  = 0-based channel index (HA internal)
+#   {channel1} = 1-based channel number (what most XMEye HTTP endpoints use)
+#   {user} / {password} = plain-text credentials
+#
+# NVR / DVR firmwares use 1-based channel numbering in the HTTP snapshot API
+# (channel=0 falls through to channel 1 on tested firmware, causing ch0 and ch1
+# in HA to both return the same camera). RTSP also uses 1-based; we follow suit.
 _SNAPSHOT_PATHS = [
-    # NVR / DVR firmwares: requires plain-text credentials in query string
-    "/webcapture.jpg?command=snap&channel={channel}&user={user}&password={password}",
-    # IPC cameras: accepts the path without auth (factory-default empty password)
-    "/webcapture.jpg?command=snap&channel={channel}",
-    # Legacy paths still found on some older firmwares
+    # NVR / DVR: requires plain-text credentials; uses 1-based channel
+    "/webcapture.jpg?command=snap&channel={channel1}&user={user}&password={password}",
+    # IPC cameras: no auth required (factory-default empty password); 1-based channel
+    "/webcapture.jpg?command=snap&channel={channel1}",
+    # Legacy paths still found on some older firmwares (0-based, kept as fallback)
     "/snap.jpg?channel={channel}",
     "/web/cgi-bin/hi3510/snapPicture.cgi?chn={channel}",
     "/cgi-bin/snapshot.cgi?chn={channel}&q=0",
@@ -233,6 +240,7 @@ class XMEyeCamera(XMEyeEntity, Camera):
         """Expand a snapshot path template with this camera's parameters."""
         return path_tpl.format(
             channel=self._channel,
+            channel1=self._channel + 1,
             user=self._username,
             password=self._password,
         )
