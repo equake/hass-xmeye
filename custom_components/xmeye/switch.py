@@ -141,7 +141,12 @@ class XMEyeSwitch(XMEyeEntity, SwitchEntity):
                     if self._channel < len(entries):
                         enc = entries[self._channel]
                         if "MainFormat" in enc:
-                            return bool(enc["MainFormat"].get("Video", {}).get("Enable", True))
+                            mf = enc["MainFormat"]
+                            # IPC firmware uses MainFormat.VideoEnable (bool)
+                            # DVR firmware uses MainFormat.Video.Enable (bool)
+                            if "VideoEnable" in mf:
+                                return bool(mf["VideoEnable"])
+                            return bool(mf.get("Video", {}).get("Enable", True))
                         if "Video" in enc:
                             return bool(enc["Video"].get("Enable", True))
                         return bool(enc.get("Enable", True))

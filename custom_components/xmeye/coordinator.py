@@ -35,6 +35,17 @@ _T = TypeVar("_T")
 
 _STORAGE_REFRESH_INTERVAL = timedelta(seconds=60)
 
+# Some IPC/DVR firmwares use different names for the same alarm event type.
+# Normalize them to the canonical names used in binary_sensor.py so that
+# sensors fire regardless of which firmware variant sent the event.
+_EVENT_ALIASES: dict[str, str] = {
+    "VideoMotion": "MotionDetect",     # IPC firmware variant
+    "Motion": "MotionDetect",          # rare short form
+    "VideoLoss": "VideoLost",          # some firmwares spell it without 't'
+    "BlindDetect": "HideAlarm",        # alternate name for video blind/tamper
+    "LocalAlarm": "AlarmLocal",        # alternate order seen on some DVRs
+}
+
 
 class XMEyeCoordinator:
     """Manages the persistent connection to one XMEye/Sofia device.
@@ -203,10 +214,15 @@ class XMEyeCoordinator:
                 return
             entries = data if isinstance(data, list) else [data]
             if channel < len(entries):
-                # Try common field paths
                 enc = entries[channel]
                 if "MainFormat" in enc:
-                    enc["MainFormat"].setdefault("Video", {})["Enable"] = enabled
+                    mf = enc["MainFormat"]
+                    if "VideoEnable" in mf:
+                        # IPC firmware: top-level VideoEnable flag
+                        mf["VideoEnable"] = enabled
+                    else:
+                        # DVR firmware: nested Video.Enable
+                        mf.setdefault("Video", {})["Enable"] = enabled
                 elif "Video" in enc:
                     enc["Video"]["Enable"] = enabled
                 else:
@@ -361,7 +377,8 @@ class XMEyeCoordinator:
         }
 
     def _handle_event(self, event: AlarmEvent) -> None:
-        key = (event.channel, event.event_type)
+        event_type = _EVENT_ALIASES.get(event.event_type, event.event_type)
+        key = (event.channel, event_type)
         if self.states.get(key) != event.active:
             self.states[key] = event.active
             self._notify_listeners()
