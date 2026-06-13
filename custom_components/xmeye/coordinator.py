@@ -15,7 +15,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_send
-from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.event import async_call_later, async_track_time_interval
 
 from .client import AlarmEvent, XMEyeAuthError, XMEyeClient
 from .const import (
@@ -39,6 +39,13 @@ _T = TypeVar("_T")
 
 _STORAGE_REFRESH_INTERVAL = timedelta(seconds=60)
 _CHANNEL_RECHECK_INTERVAL = timedelta(minutes=5)
+
+# Seconds to hold a motion-class sensor ON after the last Stop event.
+# Prevents the log from filling with rapid Start/Stop pairs from AI detection.
+_MOTION_CLEAR_DELAY = 30
+
+# Event types whose Stop is debounced. Discrete/physical events are excluded.
+_DEBOUNCED_EVENTS = {"MotionDetect", "CrossLineDetection", "PEAAlarm"}
 
 # Some IPC/DVR firmwares use different names for the same alarm event type.
 # Normalize them to the canonical names used in binary_sensor.py so that
@@ -90,6 +97,8 @@ class XMEyeCoordinator:
         self._command_lock = asyncio.Lock()
         self._unsub_refresh: Callable[[], None] | None = None
         self._unsub_channel_check: Callable[[], None] | None = None
+        # Pending debounce timers: (channel, event_type) → unsub callable
+        self._clear_unsubs: dict[tuple[int, str], Callable[[], None]] = {}
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -118,6 +127,9 @@ class XMEyeCoordinator:
         )
 
     async def async_shutdown(self) -> None:
+        for unsub in self._clear_unsubs.values():
+            unsub()
+        self._clear_unsubs.clear()
         if self._unsub_channel_check:
             self._unsub_channel_check()
             self._unsub_channel_check = None
@@ -501,9 +513,32 @@ class XMEyeCoordinator:
             )
 
         key = (event.channel, event_type)
-        if self.states.get(key) != event.active:
-            self.states[key] = event.active
-            self._notify_listeners()
+
+        if event.active:
+            # Cancel any pending debounce clear so the sensor stays ON.
+            if key in self._clear_unsubs:
+                self._clear_unsubs.pop(key)()
+            if not self.states.get(key):
+                self.states[key] = True
+                self._notify_listeners()
+        elif event_type in _DEBOUNCED_EVENTS:
+            # Delay the clear; ignore if sensor is already OFF or timer already running.
+            if self.states.get(key) and key not in self._clear_unsubs:
+                def _make_clear(k: tuple[int, str]) -> None:
+                    def _do_clear(_now: object) -> None:
+                        self._clear_unsubs.pop(k, None)
+                        if self.states.get(k):
+                            self.states[k] = False
+                            self._notify_listeners()
+                    self._clear_unsubs[k] = async_call_later(
+                        self.hass, _MOTION_CLEAR_DELAY, _do_clear
+                    )
+                _make_clear(key)
+        else:
+            # Non-debounced events (VideoLost, HideAlarm, etc.) clear immediately.
+            if self.states.get(key):
+                self.states[key] = False
+                self._notify_listeners()
 
     async def _keepalive_loop(self, client: XMEyeClient, interval: int) -> None:
         effective_interval = max(10, interval - 5)
