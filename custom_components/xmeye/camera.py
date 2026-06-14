@@ -8,16 +8,18 @@ import logging
 import re
 
 import aiohttp
+import voluptuous as vol
 from homeassistant.components.camera import Camera, CameraEntityFeature
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_platform
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import XMEyeConfigEntry
 from .client import sofia_hash
-from .const import SIGNAL_NEW_CHANNEL
+from .const import SERVICE_PTZ, SIGNAL_NEW_CHANNEL
 from .coordinator import XMEyeCoordinator
 from .entity import XMEyeEntity
 
@@ -190,6 +192,17 @@ async def async_setup_entry(
         async_dispatcher_connect(
             hass, SIGNAL_NEW_CHANNEL.format(entry.entry_id), _on_new_channel
         )
+    )
+
+    platform = entity_platform.async_get_current_platform()
+    platform.async_register_entity_service(
+        SERVICE_PTZ,
+        {
+            vol.Required("command"): str,
+            vol.Optional("movement", default="start"): vol.In(["start", "stop"]),
+            vol.Optional("speed", default=5): vol.All(int, vol.Range(min=1, max=8)),
+        },
+        "async_ptz_command",
     )
 
 
@@ -413,6 +426,18 @@ class XMEyeCamera(XMEyeEntity, Camera):
                 return
 
         step = min(max(int(speed or 5), 1), 8)
+        channel = self._channel
+        await self._coordinator.async_run_command(
+            lambda c: c.ptz_control(channel, command, step)
+        )
+
+    async def async_ptz_command(
+        self, command: str, movement: str = "start", speed: int = 5
+    ) -> None:
+        """Handle a raw PTZ command from the xmeye.ptz service."""
+        if movement == "stop":
+            command = "Stop"
+        step = min(max(speed, 1), 8)
         channel = self._channel
         await self._coordinator.async_run_command(
             lambda c: c.ptz_control(channel, command, step)
