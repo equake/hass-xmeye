@@ -49,6 +49,17 @@
       "unique_id_mismatch": "The host/port does not match the configured device"
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "XMEye / Sofia Options",
+        "description": "Adjust behaviour for this device.",
+        "data": {
+          "motion_clear_delay": "Motion clear delay (0 = immediate)"
+        }
+      }
+    }
+  },
   "entity": {
     "binary_sensor": {
       "motion": { "name": "CH{channel} Motion" },
