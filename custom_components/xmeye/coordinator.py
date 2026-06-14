@@ -21,6 +21,7 @@ from .client import AlarmEvent, XMEyeAuthError, XMEyeClient
 from .const import (
     CONF_CHANNEL_COUNT,
     CONF_DEVICE_TYPE,
+    CONF_MOTION_CLEAR_DELAY,
     CONF_NAME_ENCODE,
     CONF_NAME_ENCODE_ALT,
     CONF_NAME_GENERAL,
@@ -28,6 +29,7 @@ from .const import (
     CONF_NAME_STORAGE,
     CONF_NAME_STORAGE_ALT,
     CONF_NAME_STORAGE_LEGACY,
+    DEFAULT_MOTION_CLEAR_DELAY,
     DOMAIN,
     MIN_SNAPSHOT_BYTES,
     RECONNECT_DELAY,
@@ -39,10 +41,6 @@ _T = TypeVar("_T")
 
 _STORAGE_REFRESH_INTERVAL = timedelta(seconds=60)
 _CHANNEL_RECHECK_INTERVAL = timedelta(minutes=5)
-
-# Seconds to hold a motion-class sensor ON after the last Stop event.
-# Prevents the log from filling with rapid Start/Stop pairs from AI detection.
-_MOTION_CLEAR_DELAY = 30
 
 # Event types whose Stop is debounced. Discrete/physical events are excluded.
 _DEBOUNCED_EVENTS = {"MotionDetect", "CrossLineDetection", "PEAAlarm"}
@@ -523,17 +521,19 @@ class XMEyeCoordinator:
                 self._notify_listeners()
         elif event_type in _DEBOUNCED_EVENTS:
             # Delay the clear; ignore if sensor is already OFF or timer already running.
-            if self.states.get(key) and key not in self._clear_unsubs:
-                def _make_clear(k: tuple[int, str]) -> None:
+            delay = int(self.entry.options.get(CONF_MOTION_CLEAR_DELAY, DEFAULT_MOTION_CLEAR_DELAY))
+            if delay > 0 and self.states.get(key) and key not in self._clear_unsubs:
+                def _make_clear(k: tuple[int, str], d: int) -> None:
                     def _do_clear(_now: object) -> None:
                         self._clear_unsubs.pop(k, None)
                         if self.states.get(k):
                             self.states[k] = False
                             self._notify_listeners()
-                    self._clear_unsubs[k] = async_call_later(
-                        self.hass, _MOTION_CLEAR_DELAY, _do_clear
-                    )
-                _make_clear(key)
+                    self._clear_unsubs[k] = async_call_later(self.hass, d, _do_clear)
+                _make_clear(key, delay)
+            elif delay == 0 and self.states.get(key):
+                self.states[key] = False
+                self._notify_listeners()
         else:
             # Non-debounced events (VideoLost, HideAlarm, etc.) clear immediately.
             if self.states.get(key):
