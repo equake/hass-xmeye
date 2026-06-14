@@ -1,0 +1,63 @@
+ptz:
+  name: PTZ Control
+  description: >
+    Send a raw DVRIP PTZ command to an XMEye/Sofia camera.
+    Supports any command the firmware accepts: directions, zoom, focus, iris, presets.
+  target:
+    entity:
+      integration: xmeye
+      domain: camera
+  fields:
+    command:
+      name: Command
+      description: >
+        DVRIP PTZ command string. Common values:
+        DirectionUp/Down/Left/Right, ZoomTele/ZoomWide,
+        FocusNear/FocusFar, AutoFocus,
+        IrisBig/IrisSmall, GotoPreset/SetPreset/ClearPreset, Stop.
+      required: true
+      example: FocusNear
+      selector:
+        select:
+          options:
+            - DirectionUp
+            - DirectionDown
+            - DirectionLeft
+            - DirectionRight
+            - DirectionUpLeft
+            - DirectionUpRight
+            - DirectionDownLeft
+            - DirectionDownRight
+            - ZoomTele
+            - ZoomWide
+            - FocusNear
+            - FocusFar
+            - AutoFocus
+            - IrisBig
+            - IrisSmall
+            - GotoPreset
+            - SetPreset
+            - ClearPreset
+            - Stop
+          custom_value: true
+    movement:
+      name: Movement
+      description: Whether to start or stop the command.
+      required: false
+      default: start
+      selector:
+        select:
+          options:
+            - start
+            - stop
+    speed:
+      name: Speed
+      description: Movement speed (1–8).
+      required: false
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 8
+          step: 1
+          mode: slider

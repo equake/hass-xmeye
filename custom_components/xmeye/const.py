@@ -60,6 +60,8 @@ ALL_EVENT_TYPES = [
 
 RECONNECT_DELAY = 30  # seconds between reconnection attempts
 
+SERVICE_PTZ = "ptz"
+
 CONFIG_ENTRY_VERSION = 1
 
 # Dispatcher signal fired when a new camera channel is confirmed.
