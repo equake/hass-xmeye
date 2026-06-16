@@ -25,19 +25,6 @@ from .entity import XMEyeEntity
 
 _LOGGER = logging.getLogger(__name__)
 
-_PTZ_MAP: dict[tuple[str | None, str | None, str | None], str] = {
-    ("UP", None, None): "DirectionUp",
-    ("DOWN", None, None): "DirectionDown",
-    (None, "LEFT", None): "DirectionLeft",
-    (None, "RIGHT", None): "DirectionRight",
-    ("UP", "LEFT", None): "DirectionUpLeft",
-    ("UP", "RIGHT", None): "DirectionUpRight",
-    ("DOWN", "LEFT", None): "DirectionDownLeft",
-    ("DOWN", "RIGHT", None): "DirectionDownRight",
-    (None, None, "IN"): "ZoomTele",
-    (None, None, "OUT"): "ZoomWide",
-}
-
 # Snapshot paths tried in order; first to return a valid JPEG frame is cached.
 # Placeholders:
 #   {channel}  = 0-based channel index (HA internal)
@@ -215,7 +202,7 @@ class XMEyeCamera(XMEyeEntity, Camera):
     """Camera entity providing RTSP stream, HTTP snapshot, and PTZ control."""
 
     _attr_translation_key = "camera"
-    _attr_supported_features = CameraEntityFeature.STREAM | CameraEntityFeature.PTZ
+    _attr_supported_features = CameraEntityFeature.STREAM
 
     def __init__(self, coordinator: XMEyeCoordinator, channel: int) -> None:
         super().__init__(coordinator)
@@ -401,40 +388,6 @@ class XMEyeCamera(XMEyeEntity, Camera):
     # ------------------------------------------------------------------
     # PTZ
     # ------------------------------------------------------------------
-
-    async def async_perform_ptz(
-        self,
-        pan: str | None = None,
-        tilt: str | None = None,
-        zoom: str | None = None,
-        movement: str = "start",
-        preset: int | None = None,
-        speed: int | None = None,
-    ) -> None:
-        """Handle a PTZ command from HA."""
-        if preset is not None:
-            command = "GotoPreset"
-            ptz_preset = preset
-        else:
-            key = (
-                tilt.upper() if tilt else None,
-                pan.upper() if pan else None,
-                zoom.upper() if zoom else None,
-            )
-            command = _PTZ_MAP.get(key)
-            if command is None:
-                _LOGGER.warning(
-                    "Unrecognised PTZ movement: pan=%s tilt=%s zoom=%s", pan, tilt, zoom
-                )
-                return
-            # Preset=65535 starts the motor; Preset=-1 stops it (same command, same direction).
-            ptz_preset = -1 if movement == "stop" else 65535
-
-        step = max(1, min(8, round((speed or 50) / 100 * 8)))
-        channel = self._channel
-        await self._coordinator.async_run_command(
-            lambda c: c.ptz_control(channel, command, step, ptz_preset)
-        )
 
     async def async_ptz_command(
         self, command: str, movement: str = "start", speed: int = 5, preset: int | None = None
