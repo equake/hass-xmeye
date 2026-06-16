@@ -38,8 +38,19 @@ ptz:
             - GotoPreset
             - SetPreset
             - ClearPreset
-            - Stop
           custom_value: true
+    preset:
+      name: Preset
+      description: >
+        Preset number (0–255). Required when command is GotoPreset, SetPreset, or ClearPreset.
+      required: false
+      example: 1
+      selector:
+        number:
+          min: 0
+          max: 255
+          step: 1
+          mode: box
     movement:
       name: Movement
       description: Whether to start or stop the command.
