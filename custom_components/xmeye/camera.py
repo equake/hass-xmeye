@@ -237,6 +237,9 @@ class XMEyeCamera(XMEyeEntity, Camera):
 
     @property
     def name(self) -> str:
+        titles = self._coordinator.channel_titles
+        if titles and self._channel < len(titles) and titles[self._channel]:
+            return titles[self._channel]
         return f"CH{self._channel + 1}"
 
     # ------------------------------------------------------------------

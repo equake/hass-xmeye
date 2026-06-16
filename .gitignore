@@ -1,43 +1,42 @@
+# Scripts / debug
+scripts/
+
 # Python
 __pycache__/
 *.py[cod]
+*.pyc
 *.pyo
 *.pyd
-.Python
-*.egg
 *.egg-info/
 dist/
 build/
-eggs/
 .eggs/
-*.so
-*.dylib
-.mypy_cache/
+
+# Linting / type checking
 .ruff_cache/
+.mypy_cache/
 .pytest_cache/
+.coverage
+htmlcov/
+.tox/
 
-# Virtual environments
-.venv/
-venv/
-env/
-.env
-
-# Editor / OS
-.DS_Store
-Thumbs.db
-*.swp
-*.swo
-*~
+# IDE
 .idea/
 .vscode/
-*.sublime-project
-*.sublime-workspace
+*.swp
+*.swo
+*.swn
+.bak
+*~
 
-# Home Assistant dev / testing
-.storage/
-home-assistant.log
-home-assistant_v2.db*
-config/
+# OS
+.DS_Store
+Thumbs.db
 
-# Extra
-.claude
+# Home Assistant
+custom_components/xmeye/__pycache__/
+.hass_addons_data/
+.deps/
+
+# Claude Code
+.claude/

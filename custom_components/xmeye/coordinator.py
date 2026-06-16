@@ -90,6 +90,10 @@ class XMEyeCoordinator:
         # Populated by HTTP probe at startup; updated by events and periodic recheck.
         self.connected_channels: set[int] = set()
 
+        # Channel titles (names) from ChannelTitle config (cmd 1048).
+        # Index N = name of channel N. Populated after first login.
+        self.channel_titles: list[str] = []
+
         self._listeners: list[Callable[[], None]] = []
         self._task: asyncio.Task | None = None
         self._command_lock = asyncio.Lock()
@@ -208,6 +212,17 @@ class XMEyeCoordinator:
     # ------------------------------------------------------------------
     # Config helpers (used by switch.py)
     # ------------------------------------------------------------------
+
+    async def async_get_channel_titles(self) -> list[str]:
+        """Fetch channel titles from the device via cmd 1048.
+
+        Returns a list where index N is the name of channel N.
+        Used to map camera names (e.g. 'Externa') to channel indices.
+        """
+        async def _get(client: XMEyeClient) -> list[str]:
+            return await client.channel_title()
+
+        return await self.async_run_command(_get)
 
     async def async_get_encode_cfg(self) -> tuple[str, list]:
         """Return (config_name, channel_list) for the encode config."""
@@ -455,6 +470,7 @@ class XMEyeCoordinator:
             # Fetch device info and storage before entering the alarm loop
             await self._fetch_device_info_direct(client)
             await self._fetch_storage(client)
+            await self._fetch_channel_titles_direct(client)
 
             self.connected = True
             self._notify_listeners()
@@ -496,6 +512,16 @@ class XMEyeCoordinator:
                        or inner.get("Serial") or inner.get("SerialNo")),
             "model": raw.get("MachineName") or inner.get("MachineName") or self.device_type,
         }
+
+    async def _fetch_channel_titles_direct(self, client: XMEyeClient) -> None:
+        """Fetch channel titles (cmd 1048) using the already-logged-in alarm client."""
+        try:
+            titles = await client.channel_title()
+        except Exception:  # noqa: BLE001
+            return
+        if titles:
+            self.channel_titles = titles
+            _LOGGER.debug("Channel titles: %s", titles)
 
     def _handle_event(self, event: AlarmEvent) -> None:
         event_type = _EVENT_ALIASES.get(event.event_type, event.event_type)
