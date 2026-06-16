@@ -201,6 +201,7 @@ async def async_setup_entry(
             vol.Required("command"): str,
             vol.Optional("movement", default="start"): vol.In(["start", "stop"]),
             vol.Optional("speed", default=5): vol.All(int, vol.Range(min=1, max=8)),
+            vol.Optional("preset"): vol.All(int, vol.Range(min=0, max=255)),
         },
         "async_ptz_command",
     )
@@ -214,7 +215,7 @@ class XMEyeCamera(XMEyeEntity, Camera):
     """Camera entity providing RTSP stream, HTTP snapshot, and PTZ control."""
 
     _attr_translation_key = "camera"
-    _attr_supported_features = CameraEntityFeature.STREAM
+    _attr_supported_features = CameraEntityFeature.STREAM | CameraEntityFeature.PTZ
 
     def __init__(self, coordinator: XMEyeCoordinator, channel: int) -> None:
         super().__init__(coordinator)
@@ -429,18 +430,21 @@ class XMEyeCamera(XMEyeEntity, Camera):
             # Preset=65535 starts the motor; Preset=-1 stops it (same command, same direction).
             ptz_preset = -1 if movement == "stop" else 65535
 
-        step = min(max(int(speed or 5), 1), 8)
+        step = max(1, min(8, round((speed or 50) / 100 * 8)))
         channel = self._channel
         await self._coordinator.async_run_command(
             lambda c: c.ptz_control(channel, command, step, ptz_preset)
         )
 
     async def async_ptz_command(
-        self, command: str, movement: str = "start", speed: int = 5
+        self, command: str, movement: str = "start", speed: int = 5, preset: int | None = None
     ) -> None:
         """Handle a raw PTZ command from the xmeye.ptz service."""
-        # Preset=65535 starts the motor; Preset=-1 stops it (same command, same direction).
-        ptz_preset = -1 if movement == "stop" else 65535
+        if preset is not None and command in ("GotoPreset", "SetPreset", "ClearPreset"):
+            ptz_preset = preset
+        else:
+            # Preset=65535 starts the motor; Preset=-1 stops it (same command, same direction).
+            ptz_preset = -1 if movement == "stop" else 65535
         step = min(max(speed, 1), 8)
         channel = self._channel
         await self._coordinator.async_run_command(
