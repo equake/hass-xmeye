@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from .const import (
     MSG_ALARM_NOTIFY,
     MSG_ALARM_SUBSCRIBE,
+    MSG_CHANNEL_TITLE,
     MSG_CONFIG_GET,
     MSG_CONFIG_SET,
     MSG_KEEPALIVE,
@@ -153,6 +154,20 @@ class XMEyeClient:
             return {}
         return resp.get(name) or {}
 
+    async def channel_title(self) -> list[str]:
+        """Get channel titles (names) via cmd 1048. Returns list of channel names."""
+        body = {"Name": "ChannelTitle", "SessionID": f"0x{self._session_id:08X}"}
+        await self._send(MSG_CHANNEL_TITLE, body)
+        _, resp = await asyncio.wait_for(self._recv(), timeout=10.0)
+        ret = resp.get("Ret", 0)
+        if ret not in RET_OK:
+            _LOGGER.debug("channel_title failed, Ret=%s", ret)
+            return []
+        titles = resp.get("ChannelTitle")
+        if isinstance(titles, list):
+            return [str(t) for t in titles]
+        return []
+
     async def config_set(self, name: str, value: object) -> bool:
         """Write a named config block via cmd 1040. Returns True on success."""
         body = {"Name": name, "SessionID": f"0x{self._session_id:08X}", name: value}
@@ -163,19 +178,28 @@ class XMEyeClient:
             _LOGGER.debug("config_set(%s) failed, Ret=%s", name, ret)
         return ret in RET_OK
 
-    async def ptz_control(self, channel: int, command: str, step: int = 5) -> None:
-        """Send a PTZ command via cmd 1400."""
+    async def ptz_control(
+        self, channel: int, command: str, step: int = 5, preset: int = 65535
+    ) -> None:
+        """Send a PTZ command via cmd 1400.
+
+        Use preset=65535 to start movement, preset=-1 to stop.
+        The stop payload must repeat the same command as the move that started it.
+        """
         body = {
             "Name": "OPPTZControl",
             "SessionID": f"0x{self._session_id:08X}",
             "OPPTZControl": {
                 "Command": command,
                 "Parameter": {
+                    "AUX": {"Number": 0, "Status": "On"},
                     "Channel": channel,
+                    "MenuOpts": "Enter",
+                    "POINT": {"bottom": 0, "left": 0, "right": 0, "top": 0},
+                    "Pattern": "SetBegin",
+                    "Preset": preset,
                     "Step": step,
-                    "Preset": -1,
                     "Tour": 0,
-                    "Pattern": 0,
                 },
             },
         }
