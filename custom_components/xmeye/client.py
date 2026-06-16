@@ -178,8 +178,14 @@ class XMEyeClient:
             _LOGGER.debug("config_set(%s) failed, Ret=%s", name, ret)
         return ret in RET_OK
 
-    async def ptz_control(self, channel: int, command: str, step: int = 5) -> None:
-        """Send a PTZ command via cmd 1400."""
+    async def ptz_control(
+        self, channel: int, command: str, step: int = 5, preset: int = 65535
+    ) -> None:
+        """Send a PTZ command via cmd 1400.
+
+        Use preset=65535 to start movement, preset=-1 to stop.
+        The stop payload must repeat the same command as the move that started it.
+        """
         body = {
             "Name": "OPPTZControl",
             "SessionID": f"0x{self._session_id:08X}",
@@ -191,7 +197,7 @@ class XMEyeClient:
                     "MenuOpts": "Enter",
                     "POINT": {"bottom": 0, "left": 0, "right": 0, "top": 0},
                     "Pattern": "SetBegin",
-                    "Preset": 65535,
+                    "Preset": preset,
                     "Step": step,
                     "Tour": 0,
                 },

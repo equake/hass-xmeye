@@ -413,8 +413,7 @@ class XMEyeCamera(XMEyeEntity, Camera):
         """Handle a PTZ command from HA."""
         if preset is not None:
             command = "GotoPreset"
-        elif movement == "stop":
-            command = "Stop"
+            ptz_preset = preset
         else:
             key = (
                 tilt.upper() if tilt else None,
@@ -427,21 +426,23 @@ class XMEyeCamera(XMEyeEntity, Camera):
                     "Unrecognised PTZ movement: pan=%s tilt=%s zoom=%s", pan, tilt, zoom
                 )
                 return
+            # Preset=65535 starts the motor; Preset=-1 stops it (same command, same direction).
+            ptz_preset = -1 if movement == "stop" else 65535
 
         step = min(max(int(speed or 5), 1), 8)
         channel = self._channel
         await self._coordinator.async_run_command(
-            lambda c: c.ptz_control(channel, command, step)
+            lambda c: c.ptz_control(channel, command, step, ptz_preset)
         )
 
     async def async_ptz_command(
         self, command: str, movement: str = "start", speed: int = 5
     ) -> None:
         """Handle a raw PTZ command from the xmeye.ptz service."""
-        if movement == "stop":
-            command = "Stop"
+        # Preset=65535 starts the motor; Preset=-1 stops it (same command, same direction).
+        ptz_preset = -1 if movement == "stop" else 65535
         step = min(max(speed, 1), 8)
         channel = self._channel
         await self._coordinator.async_run_command(
-            lambda c: c.ptz_control(channel, command, step)
+            lambda c: c.ptz_control(channel, command, step, ptz_preset)
         )
