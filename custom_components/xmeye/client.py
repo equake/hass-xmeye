@@ -11,6 +11,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
 from .const import (
+    MSG_ABILITY_GET,
     MSG_ALARM_NOTIFY,
     MSG_ALARM_SUBSCRIBE,
     MSG_CHANNEL_TITLE,
@@ -169,6 +170,33 @@ class XMEyeClient:
             _LOGGER.debug("system_info(%s) failed, Ret=%s", name, ret)
             return {}
         return resp.get(name) or {}
+
+    async def ability_get(self, name: str) -> dict:
+        """Query a capability block via cmd 1360 (e.g. SystemFunction).
+
+        Capabilities are not ConfigGet (1042) blocks; querying them via 1042
+        returns Ret=607. Returns the inner dict for ``name`` or {} on failure.
+        """
+        body = {"Name": name, "SessionID": f"0x{self._session_id:08X}"}
+        await self._send(MSG_ABILITY_GET, body)
+        _, resp = await asyncio.wait_for(self._recv(), timeout=10.0)
+        ret = resp.get("Ret", 0)
+        if ret not in RET_OK:
+            _LOGGER.debug("ability_get(%s) failed, Ret=%s", name, ret)
+            return {}
+        inner = resp.get(name)
+        return inner if isinstance(inner, dict) else {}
+
+    async def config_get_raw(self, name: str) -> tuple[int, object]:
+        """Like config_get but returns (Ret, value) so callers can use indexed names.
+
+        Used for per-channel sections such as ``Detect.MotionDetect.[2]`` where the
+        returned value is a dict/list and the Ret code matters.
+        """
+        body = {"Name": name, "SessionID": f"0x{self._session_id:08X}"}
+        await self._send(MSG_CONFIG_GET, body)
+        _, resp = await asyncio.wait_for(self._recv(), timeout=10.0)
+        return resp.get("Ret", 0), resp.get(name)
 
     async def channel_title(self) -> list[str]:
         """Get channel titles (names) via cmd 1048. Returns list of channel names."""

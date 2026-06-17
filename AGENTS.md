@@ -64,8 +64,9 @@ def sofia_hash(password: str) -> str:
 | 1006 | 1007 | `keepalive` | `KeepAlive` | Keep session alive |
 | 1020 | 1021 | `system_info` | `SystemInfo` / `StorageInfo` / `WorkState` | Runtime info (see below) |
 | 1040 | 1041 | `config_set` / `reboot` | block name / `OPMachine` | Write config / reboot |
-| 1042 | 1043 | `config_get` | `General`, `Simplify.Encode`, `Encode`, `MotionDetect` | Read config blocks |
+| 1042 | 1043 | `config_get` | `General`, `Detect.*`, `Record` | Read config blocks |
 | 1048 | 1049 | `channel_title` | `ChannelTitle` | Channel names |
+| 1360 | 1361 | `ability_get` | `SystemFunction` | Capability flags (NOT a 1042 block → 607) |
 | 1400 | — | `ptz_control` | `OPPTZControl` | PTZ (often un-ACKed) |
 | 1500 | — | `subscribe_alarms` | `""` | Subscribe to alarm push |
 | 1504 | — | (push) | `AlarmInfo` | Alarm event notification |
@@ -84,6 +85,20 @@ returns **`Ret=607`**. Use `client.system_info(name)` (cmd 1020) instead.
 (partition being recorded to), `DirverType` (0 = read/write), and `Old*/New*Time` record windows.
 
 **`WorkState`** (cmd 1020, `Name="WorkState"`) → per-channel record/bitrate state.
+
+**Per-channel controls** (switch.py / coordinator):
+- **Detection** lives in the `Detect` block, but the whole block is ~155 KB and SET **times out** —
+  address each channel's sub-section directly: `Detect.<Kind>.[ch]` (e.g. `Detect.MotionDetect.[2]`),
+  a small `{Enable, EventHandler, Level, Region}` dict. `Detect.<Kind>` (no index) returns the
+  per-channel `list`, used for bulk reads. Kinds: `MotionDetect`, `FaceDetection`, `HumanDetectionDVR`
+  (the last may be a degenerate non-per-channel list on some firmwares → gate on shape).
+- **Recording** = `Record[ch].RecordMode` ∈ `ManualRecord` (always) / `ClosedRecord` (off) /
+  `ConfigRecord` (follow schedule). `Record` SET (full list) works.
+- **Capabilities**: `SystemFunction.AlarmFunction.{MotionDetect, FaceDetect, HumanDectionNVRNew}`.
+- **Privacy/encode caveat**: disabling video encode (`Simplify.Encode[ch].MainFormat.VideoEnable`) is
+  the universal "blank the channel" lever, BUT on **digital-channel** HVRs `Simplify.Encode`/`Encode`
+  are degenerate (`{"0":null,"1":null,"Enable":true}`) — encode lives on the remote IPCs. There the
+  Privacy switch is HA-side (`coordinator.private_channels` → camera entity hidden + `ClosedRecord`).
 
 **Response codes** (`Ret`): `100`/`515` = OK (`RET_OK`); `607` = wrong command channel for that
 `Name` (e.g. 1042 asked for runtime info); `101`/`106`/`203` = auth failure (`RET_AUTH_FAIL`).

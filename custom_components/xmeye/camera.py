@@ -233,6 +233,11 @@ class XMEyeCamera(XMEyeEntity, Camera):
             return titles[self._channel]
         return f"CH{self._channel + 1}"
 
+    @property
+    def available(self) -> bool:
+        # Privacy mode hides the camera entirely (no stream, no snapshot).
+        return super().available and self._channel not in self._coordinator.private_channels
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
@@ -346,6 +351,8 @@ class XMEyeCamera(XMEyeEntity, Camera):
         self, width: int | None = None, height: int | None = None
     ) -> bytes | None:
         """Return a JPEG snapshot, discovering the URL if not yet cached."""
+        if self._channel in self._coordinator.private_channels:
+            return None
         session = async_get_clientsession(self.hass)
         auth = aiohttp.BasicAuth(self._username, sofia_hash(self._password))
 
@@ -377,6 +384,8 @@ class XMEyeCamera(XMEyeEntity, Camera):
         attempt to connect immediately.
         """
         if not self._coordinator.connected:
+            return None
+        if self._channel in self._coordinator.private_channels:
             return None
         if self._stream_url is not None:
             return self._stream_url

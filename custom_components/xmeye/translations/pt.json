@@ -76,7 +76,10 @@
     },
     "switch": {
       "motion_detection": { "name": "Canal {channel} Detecção de Movimento" },
-      "recording": { "name": "Canal {channel} Gravação" }
+      "human_detection": { "name": "Canal {channel} Detecção Humana" },
+      "face_detection": { "name": "Canal {channel} Detecção Facial" },
+      "recording": { "name": "Canal {channel} Gravação" },
+      "privacy": { "name": "Canal {channel} Privacidade" }
     },
     "button": {
       "reboot": { "name": "Reiniciar" }
