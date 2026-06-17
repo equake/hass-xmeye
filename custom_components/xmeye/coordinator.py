@@ -11,7 +11,7 @@ from typing import Any, TypeVar
 import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNAME
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_send
@@ -550,6 +550,7 @@ class XMEyeCoordinator:
             delay = int(self.entry.options.get(CONF_MOTION_CLEAR_DELAY, DEFAULT_MOTION_CLEAR_DELAY))
             if delay > 0 and self.states.get(key) and key not in self._clear_unsubs:
                 def _make_clear(k: tuple[int, str], d: int) -> None:
+                    @callback
                     def _do_clear(_now: object) -> None:
                         self._clear_unsubs.pop(k, None)
                         if self.states.get(k):
