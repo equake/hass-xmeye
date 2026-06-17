@@ -2,6 +2,11 @@
 
 Read this file before making any changes.
 
+## Workflow (required)
+
+**Always work on a feature branch and open a PR — never commit directly to `main`.**
+Branch off `main` (`fix/...`, `feat/...`), commit there, push, and open a PR with `gh pr create`.
+
 ## Quick Reference
 
 | Item | Value |
@@ -51,7 +56,13 @@ def sofia_hash(password: str) -> str:
     return "".join(chars[(digest[i*2] + digest[i*2+1]) % 62] for i in range(8))
 ```
 
-**Key CMDs**: 1000=login, 1001=login_rsp, 1042=config_get, 1400=ptz, 1500=alarm_subscribe, 1504=alarm_notify
+**Key CMDs**: 1000=login, 1001=login_rsp, 1020=system_info, 1042=config_get, 1400=ptz, 1500=alarm_subscribe, 1504=alarm_notify
+
+**ConfigGet (1042) vs SystemInfo (1020)**: 1042 is for *config* blocks (General, Encode,
+MotionDetect…). Runtime info — **StorageInfo**, SystemInfo, WorkState — is NOT a config block:
+querying it via 1042 returns `Ret=607`. Use `client.system_info(name)` (cmd 1020) instead.
+`StorageInfo` returns a list of disks, each with a `Partition` list whose `TotalSpace`/`RemainSpace`
+are **hex strings in MB** (e.g. `"0x001D1C11"`).
 
 ## Adding Platforms/Entities
 
