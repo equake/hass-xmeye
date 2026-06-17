@@ -19,6 +19,7 @@ from .const import (
     MSG_KEEPALIVE,
     MSG_LOGIN,
     MSG_PTZ_CONTROL,
+    MSG_SYSTEM_INFO,
     RET_OK,
 )
 
@@ -151,6 +152,21 @@ class XMEyeClient:
         ret = resp.get("Ret", 0)
         if ret not in RET_OK:
             _LOGGER.debug("config_get(%s) failed, Ret=%s", name, ret)
+            return {}
+        return resp.get(name) or {}
+
+    async def system_info(self, name: str) -> dict | list:
+        """Fetch runtime system info via cmd 1020 (e.g. StorageInfo, SystemInfo, WorkState).
+
+        These are NOT ConfigGet (1042) blocks — querying them via config_get returns
+        Ret=607. Returns the inner value for ``name`` (a dict or a list) or {} on failure.
+        """
+        body = {"Name": name, "SessionID": f"0x{self._session_id:08X}"}
+        await self._send(MSG_SYSTEM_INFO, body)
+        _, resp = await asyncio.wait_for(self._recv(), timeout=10.0)
+        ret = resp.get("Ret", 0)
+        if ret not in RET_OK:
+            _LOGGER.debug("system_info(%s) failed, Ret=%s", name, ret)
             return {}
         return resp.get(name) or {}
 

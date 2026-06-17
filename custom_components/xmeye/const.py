@@ -20,15 +20,16 @@ MSG_KEEPALIVE_RSP = 1007
 MSG_CONFIG_SET = 1040
 MSG_CONFIG_GET = 1042
 MSG_CHANNEL_TITLE = 1048
+MSG_SYSTEM_INFO = 1020  # SystemInfo/StorageInfo/WorkState query (response: 1021)
 MSG_PTZ_CONTROL = 1400
 MSG_ALARM_SUBSCRIBE = 1500
 MSG_ALARM_NOTIFY = 1504
 
 # ConfigGet/Set key names
 CONF_NAME_GENERAL = "General"
-CONF_NAME_STORAGE = "StorageDeviceInfo"
-CONF_NAME_STORAGE_ALT = "StorageInfo"
-CONF_NAME_STORAGE_LEGACY = "Storage"  # some HVR firmwares use this name
+# Storage is runtime info queried via SystemInfo (cmd 1020), NOT a ConfigGet (1042)
+# block — ConfigGet returns Ret=607 for it. See coordinator._fetch_storage.
+CONF_NAME_STORAGE = "StorageInfo"
 CONF_NAME_MOTION = "MotionDetect"
 CONF_NAME_ENCODE = "Simplify.Encode"
 CONF_NAME_ENCODE_ALT = "Encode"

@@ -27,8 +27,6 @@ from .const import (
     CONF_NAME_GENERAL,
     CONF_NAME_MOTION,
     CONF_NAME_STORAGE,
-    CONF_NAME_STORAGE_ALT,
-    CONF_NAME_STORAGE_LEGACY,
     DEFAULT_MOTION_CLEAR_DELAY,
     DOMAIN,
     MIN_SNAPSHOT_BYTES,
@@ -381,43 +379,50 @@ class XMEyeCoordinator:
             self._notify_listeners()
 
     async def _fetch_storage(self, client: XMEyeClient) -> None:
-        for name in (CONF_NAME_STORAGE, CONF_NAME_STORAGE_ALT, CONF_NAME_STORAGE_LEGACY):
-            raw = await client.config_get(name)
-            if not raw:
-                continue
-            entries = raw if isinstance(raw, list) else [raw]
-            parsed = [self._parse_storage_entry(e) for e in entries]
-            # Only accept entries that actually carry capacity data
-            if any(e.get("total_gb") for e in parsed):
-                self.storage_cache = parsed
-                return
+        # Storage is runtime info via SystemInfo (cmd 1020); ConfigGet (1042) returns Ret=607.
+        raw = await client.system_info(CONF_NAME_STORAGE)
+        disks = raw if isinstance(raw, list) else [raw] if raw else []
+        parsed = [self._parse_storage_entry(d) for d in disks if isinstance(d, dict)]
+        parsed = [e for e in parsed if e.get("total_gb")]
+        if parsed:
+            self.storage_cache = parsed
+            return
         _LOGGER.debug(
-            "HDD capacity info not available on %s (tried %s, %s, %s)",
+            "HDD capacity info not available on %s (queried %s via SystemInfo)",
             self.entry.data.get("host", "device"),
             CONF_NAME_STORAGE,
-            CONF_NAME_STORAGE_ALT,
-            CONF_NAME_STORAGE_LEGACY,
         )
 
     @staticmethod
-    def _parse_storage_entry(entry: dict) -> dict[str, Any]:
-        total_raw = entry.get("TotalSpace", 0)
-        used_raw = entry.get("UsedSpace", 0)
-        free_raw = entry.get("FreeSpace", 0)
+    def _parse_storage_entry(disk: dict) -> dict[str, Any]:
+        """Aggregate one physical disk's partitions from a SystemInfo StorageInfo entry.
 
-        # Devices report in different units (MB or sectors x 512).
-        # Values > 100_000 are likely in MB; otherwise assume GB directly.
-        def to_gb(val: int | float) -> float:
-            if val > 100_000:
-                return round(val / 1024, 1)  # MB → GB
-            return float(val)
+        Spaces are hex strings in MB (e.g. ``"0x001D1C11"``); older firmwares may
+        send plain ints. Each disk holds a ``Partition`` list with TotalSpace/RemainSpace.
+        """
+        def to_mb(val: object) -> int:
+            if isinstance(val, str):
+                val = val.strip()
+                try:
+                    return int(val, 16) if val.lower().startswith("0x") else int(val or 0)
+                except ValueError:
+                    return 0
+            if isinstance(val, (int, float)):
+                return int(val)
+            return 0
+
+        partitions = disk.get("Partition") or []
+        total_mb = sum(to_mb(p.get("TotalSpace", 0)) for p in partitions)
+        remain_mb = sum(to_mb(p.get("RemainSpace", 0)) for p in partitions)
+        used_mb = max(total_mb - remain_mb, 0)
+        status = "OK" if all(p.get("Status", 0) == 0 for p in partitions) else "Error"
 
         return {
-            "name": entry.get("Name", entry.get("StorageName", "HDD")),
-            "status": entry.get("Status", entry.get("State", "Unknown")),
-            "total_gb": to_gb(total_raw),
-            "used_gb": to_gb(used_raw),
-            "free_gb": to_gb(free_raw),
+            "name": disk.get("ModelNumber") or disk.get("SerialNumber") or "HDD",
+            "status": status,
+            "total_gb": round(total_mb / 1024, 1),
+            "used_gb": round(used_mb / 1024, 1),
+            "free_gb": round(remain_mb / 1024, 1),
         }
 
     # ------------------------------------------------------------------
