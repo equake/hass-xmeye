@@ -11,7 +11,7 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import EntityCategory, UnitOfInformation
+from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfInformation
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -19,10 +19,24 @@ from . import XMEyeConfigEntry
 from .coordinator import XMEyeCoordinator
 from .entity import XMEyeEntity
 
+# Disk-detail attributes surfaced on the hdd_status sensor.
+_HDD_ATTRS = (
+    "model", "serial", "read_write", "driver_type", "status_code",
+    "is_recording", "oldest_record", "newest_record", "partition_count",
+)
+
+
+def _hdd_attributes(c: XMEyeCoordinator) -> dict[str, object]:
+    if not c.storage_cache:
+        return {}
+    entry = c.storage_cache[0]
+    return {k: entry[k] for k in _HDD_ATTRS if entry.get(k) is not None}
+
 
 @dataclass(frozen=True, kw_only=True)
 class XMEyeSensorDescription(SensorEntityDescription):
     value_fn: Callable[[XMEyeCoordinator], object]
+    attributes_fn: Callable[[XMEyeCoordinator], dict[str, object]] | None = None
 
 
 _SENSOR_TYPES: tuple[XMEyeSensorDescription, ...] = (
@@ -54,9 +68,31 @@ _SENSOR_TYPES: tuple[XMEyeSensorDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
     XMEyeSensorDescription(
+        key="hdd_free",
+        translation_key="hdd_free",
+        device_class=SensorDeviceClass.DATA_SIZE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfInformation.GIGABYTES,
+        value_fn=lambda c: c.storage_cache[0]["free_gb"] if c.storage_cache else None,
+        suggested_display_precision=1,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    XMEyeSensorDescription(
+        key="hdd_used_percent",
+        translation_key="hdd_used_percent",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda c: c.storage_cache[0]["used_pct"] if c.storage_cache else None,
+        suggested_display_precision=1,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    XMEyeSensorDescription(
         key="hdd_status",
         translation_key="hdd_status",
+        device_class=SensorDeviceClass.ENUM,
+        options=["ok", "full", "no_disk", "error"],
         value_fn=lambda c: c.storage_cache[0]["status"] if c.storage_cache else None,
+        attributes_fn=_hdd_attributes,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
 )
@@ -90,5 +126,14 @@ class XMEyeSensorEntity(XMEyeEntity, SensorEntity):
     def native_value(self) -> object:
         try:
             return self._description.value_fn(self._coordinator)
+        except Exception:  # noqa: BLE001
+            return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object] | None:
+        if self._description.attributes_fn is None:
+            return None
+        try:
+            return self._description.attributes_fn(self._coordinator) or None
         except Exception:  # noqa: BLE001
             return None
