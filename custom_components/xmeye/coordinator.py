@@ -568,13 +568,20 @@ class XMEyeCoordinator:
         if not info and not general:
             return  # keep any previously cached values on transient failure
 
+        # Model: hardware code + configured name, e.g. "NBD80X16S-KL (LocalHost)".
+        hardware = info.get("HardWare")
+        machine = general.get("MachineName")
+        if hardware and machine:
+            model = f"{hardware} ({machine})"
+        else:
+            model = hardware or machine or self.device_type
+
         self.device_info_cache = {
             "firmware": (info.get("SoftWareVersion") or info.get("Version")
                          or general.get("Firmware") or general.get("Version")),
             "serial": (info.get("SerialNo") or info.get("Serial")
                        or general.get("SerialNo") or general.get("Serial")),
-            "model": (general.get("MachineName") or info.get("HardWare")
-                      or self.device_type),
+            "model": model,
         }
 
     async def _fetch_channel_titles_direct(self, client: XMEyeClient) -> None:
