@@ -9,8 +9,12 @@ DEFAULT_USERNAME = "admin"
 CONF_CHANNEL_COUNT = "channel_count"
 CONF_DEVICE_TYPE = "device_type"
 CONF_MOTION_CLEAR_DELAY = "motion_clear_delay"
+CONF_STORAGE_REFRESH_INTERVAL = "storage_refresh_interval"
 
 DEFAULT_MOTION_CLEAR_DELAY = 30  # seconds; 0 = disable debounce
+DEFAULT_STORAGE_REFRESH_INTERVAL = 300  # seconds (5 min)
+MIN_STORAGE_REFRESH_INTERVAL = 60  # 1 min
+MAX_STORAGE_REFRESH_INTERVAL = 3600  # 1 hour
 
 # DVRIP message IDs
 MSG_LOGIN = 1000
