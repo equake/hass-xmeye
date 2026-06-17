@@ -29,7 +29,10 @@ _LOGGER = logging.getLogger(__name__)
 # Placeholders:
 #   {channel}  = 0-based channel index (HA internal)
 #   {channel1} = 1-based channel number (what most XMEye HTTP endpoints use)
-#   {user} / {password} = plain-text credentials
+#   {user}     = username
+#   {password} = sofia_hash of the password (same encoding RTSP and BasicAuth use;
+#                the device accepts it in the query string and we avoid putting the
+#                plain-text password in the URL)
 #
 # XMEye / Sofia HTTP snapshot API uses 1-based channel numbering.
 # channel=0 falls through to channel 1 on tested firmware, so ch0 and ch1
@@ -38,7 +41,7 @@ _LOGGER = logging.getLogger(__name__)
 # The authenticated path is tried first and works for any device where credentials
 # are set. The unauthenticated path covers devices that have no password configured.
 _SNAPSHOT_PATHS = [
-    # With credentials (plain-text in query string; works for NVR and password-protected IPC)
+    # With credentials (sofia_hash in query string; works for NVR and password-protected IPC)
     "/webcapture.jpg?command=snap&channel={channel1}&user={user}&password={password}",
     # Without credentials (covers devices with no password set)
     "/webcapture.jpg?command=snap&channel={channel1}",
@@ -260,7 +263,7 @@ class XMEyeCamera(XMEyeEntity, Camera):
             channel=self._channel,
             channel1=self._channel + 1,
             user=self._username,
-            password=self._password,
+            password=sofia_hash(self._password),
         )
 
     async def _find_snapshot_path(
