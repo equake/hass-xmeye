@@ -542,23 +542,46 @@ class XMEyeCoordinator:
             await client.close()
 
     async def _fetch_device_info_direct(self, client: XMEyeClient) -> None:
-        """Fetch General config using the already-logged-in alarm client."""
+        """Populate device_info_cache using the already-logged-in alarm client.
+
+        Firmware/serial/hardware live in SystemInfo (cmd 1020), NOT in the General
+        config (cmd 1042) — General only carries the friendly device name (MachineName).
+        """
+        info: dict = {}
+        try:
+            raw_info = await client.system_info("SystemInfo")
+            if isinstance(raw_info, dict):
+                info = raw_info
+        except Exception:  # noqa: BLE001
+            pass
+
+        # The "General" config is nested: top-level keys are sub-sections (AdaptEncode,
+        # AutoLogin, …); the device name lives inside the inner "General" sub-section.
+        general: dict = {}
         try:
             raw = await client.config_get(CONF_NAME_GENERAL)
+            if isinstance(raw, dict):
+                general = {**raw, **(raw.get("General") or {})}
         except Exception:  # noqa: BLE001
-            return
-        if not isinstance(raw, dict):
-            return
-        # The "General" config is a nested object.  Top-level keys are sub-sections
-        # (AdaptEncode, AutoLogin, …).  Device name lives inside the inner "General"
-        # sub-section; firmware/serial may be at the top level on some firmwares.
-        inner = raw.get("General", {}) if isinstance(raw, dict) else {}
+            pass
+
+        if not info and not general:
+            return  # keep any previously cached values on transient failure
+
+        # Model: hardware code + configured name, e.g. "NBD80X16S-KL (LocalHost)".
+        hardware = info.get("HardWare")
+        machine = general.get("MachineName")
+        if hardware and machine:
+            model = f"{hardware} ({machine})"
+        else:
+            model = hardware or machine or self.device_type
+
         self.device_info_cache = {
-            "firmware": (raw.get("Firmware") or raw.get("Version")
-                         or inner.get("Firmware") or inner.get("Version")),
-            "serial": (raw.get("Serial") or raw.get("SerialNo")
-                       or inner.get("Serial") or inner.get("SerialNo")),
-            "model": raw.get("MachineName") or inner.get("MachineName") or self.device_type,
+            "firmware": (info.get("SoftWareVersion") or info.get("Version")
+                         or general.get("Firmware") or general.get("Version")),
+            "serial": (info.get("SerialNo") or info.get("Serial")
+                       or general.get("SerialNo") or general.get("Serial")),
+            "model": model,
         }
 
     async def _fetch_channel_titles_direct(self, client: XMEyeClient) -> None:
