@@ -25,6 +25,7 @@ MSG_CONFIG_SET = 1040
 MSG_CONFIG_GET = 1042
 MSG_CHANNEL_TITLE = 1048
 MSG_SYSTEM_INFO = 1020  # SystemInfo/StorageInfo/WorkState query (response: 1021)
+MSG_ABILITY_GET = 1360  # SystemFunction capability query (response: 1361)
 MSG_PTZ_CONTROL = 1400
 MSG_ALARM_SUBSCRIBE = 1500
 MSG_ALARM_NOTIFY = 1504
@@ -34,9 +35,24 @@ CONF_NAME_GENERAL = "General"
 # Storage is runtime info queried via SystemInfo (cmd 1020), NOT a ConfigGet (1042)
 # block — ConfigGet returns Ret=607 for it. See coordinator._fetch_storage.
 CONF_NAME_STORAGE = "StorageInfo"
-CONF_NAME_MOTION = "MotionDetect"
-CONF_NAME_ENCODE = "Simplify.Encode"
-CONF_NAME_ENCODE_ALT = "Encode"
+CONF_NAME_SYSFUNCTION = "SystemFunction"  # capability flags (queried via cmd 1360)
+
+# Per-channel detection lives in the Detect block. Writing the whole 155 KB block
+# times out, so address each channel's sub-section directly: "Detect.<Kind>.[ch]".
+# The list form "Detect.<Kind>" is used for bulk reads (cache).
+CONF_NAME_DETECT = "Detect"
+# Detection kinds -> (Detect sub-key, SystemFunction.AlarmFunction capability flag).
+DETECT_KINDS = {
+    "motion": ("MotionDetect", "MotionDetect"),
+    "human": ("HumanDetectionDVR", "HumanDectionNVRNew"),
+    "face": ("FaceDetection", "FaceDetect"),
+}
+
+# Recording mode lives in the Record block (list, one entry per channel).
+CONF_NAME_RECORD = "Record"
+RECORD_MODE_OFF = "ClosedRecord"
+RECORD_MODE_ALWAYS = "ManualRecord"
+RECORD_MODE_SCHEDULE = "ConfigRecord"  # follow the DVR schedule (device default)
 
 # UDP device discovery
 UDP_DISCOVERY_PORT = 34569

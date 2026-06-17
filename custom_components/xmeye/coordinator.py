@@ -22,19 +22,23 @@ from .const import (
     CONF_CHANNEL_COUNT,
     CONF_DEVICE_TYPE,
     CONF_MOTION_CLEAR_DELAY,
-    CONF_NAME_ENCODE,
-    CONF_NAME_ENCODE_ALT,
+    CONF_NAME_DETECT,
     CONF_NAME_GENERAL,
-    CONF_NAME_MOTION,
+    CONF_NAME_RECORD,
     CONF_NAME_STORAGE,
+    CONF_NAME_SYSFUNCTION,
     CONF_STORAGE_REFRESH_INTERVAL,
     DEFAULT_MOTION_CLEAR_DELAY,
     DEFAULT_STORAGE_REFRESH_INTERVAL,
+    DETECT_KINDS,
     DOMAIN,
     MAX_STORAGE_REFRESH_INTERVAL,
     MIN_SNAPSHOT_BYTES,
     MIN_STORAGE_REFRESH_INTERVAL,
     RECONNECT_DELAY,
+    RECORD_MODE_OFF,
+    RECORD_MODE_SCHEDULE,
+    RET_OK,
     SIGNAL_NEW_CHANNEL,
 )
 
@@ -90,8 +94,15 @@ class XMEyeCoordinator:
         self.device_info_cache: dict[str, str | None] = {}
         self.storage_cache: list[dict[str, Any]] = []
 
-        # Encode config name that worked for this device (cached after first use)
-        self._encode_cfg_name: str | None = None
+        # Per-channel control state, fetched on connect (and after writes).
+        # detect_cache: {kind -> list-of-dicts per channel}; record_cache: list per channel.
+        self.detect_cache: dict[str, list] = {}
+        self.record_cache: list[dict[str, Any]] = []
+        self.system_function: dict[str, Any] = {}
+        # Channels the user has put in privacy mode (HA-side): camera hidden + not recording.
+        self.private_channels: set[int] = set()
+        # RecordMode to restore when leaving privacy / turning recording back on.
+        self._record_restore: dict[int, str] = {}
 
         # Channels confirmed to have a camera connected.
         # Populated by HTTP probe at startup; updated by events and periodic recheck.
@@ -235,62 +246,119 @@ class XMEyeCoordinator:
 
         return await self.async_run_command(_get)
 
-    async def async_get_encode_cfg(self) -> tuple[str, list]:
-        """Return (config_name, channel_list) for the encode config."""
-        async def _get(client: XMEyeClient) -> tuple[str, list]:
-            for name in (CONF_NAME_ENCODE, CONF_NAME_ENCODE_ALT):
-                data = await client.config_get(name)
-                if data:
-                    self._encode_cfg_name = name
-                    return name, data if isinstance(data, list) else [data]
-            return CONF_NAME_ENCODE, []
+    # ------------------------------------------------------------------
+    # Per-channel controls (detection / recording / privacy)
+    # ------------------------------------------------------------------
 
-        return await self.async_run_command(_get)
+    async def async_refresh_controls(self) -> None:
+        """Populate the control caches via a short-lived connection (used at setup)."""
+        await self.async_run_command(self._fetch_controls)
 
-    async def async_set_motion_enabled(self, channel: int, enabled: bool) -> None:
+    async def _fetch_controls(self, client: XMEyeClient) -> None:
+        """Fetch detection/recording state + capabilities (on the persistent socket).
+
+        Reads the per-kind Detect sub-lists and the Record list (small), plus the
+        SystemFunction capability flags (cmd 1360). Cached for the switch entities.
+        """
+        self.system_function = await client.ability_get(CONF_NAME_SYSFUNCTION)
+        detect: dict[str, list] = {}
+        for _kind, (subkey, _cap) in DETECT_KINDS.items():
+            ret, val = await client.config_get_raw(f"{CONF_NAME_DETECT}.{subkey}")
+            if ret in RET_OK and isinstance(val, list):
+                detect[subkey] = val
+        self.detect_cache = detect
+        rec = await client.config_get(CONF_NAME_RECORD)
+        self.record_cache = rec if isinstance(rec, list) else []
+
+    def detect_supported(self, kind: str, channel: int) -> bool:
+        """True if this detection kind is usable for the channel on this device."""
+        subkey, cap = DETECT_KINDS[kind]
+        alarm = self.system_function.get("AlarmFunction", {}) if self.system_function else {}
+        # If capabilities were read, require the flag; otherwise fall back to shape.
+        if alarm and not alarm.get(cap, False):
+            return False
+        block = self.detect_cache.get(subkey)
+        return (
+            isinstance(block, list)
+            and channel < len(block)
+            and isinstance(block[channel], dict)
+            and "Enable" in block[channel]
+        )
+
+    def detect_enabled(self, kind: str, channel: int) -> bool | None:
+        subkey, _cap = DETECT_KINDS[kind]
+        block = self.detect_cache.get(subkey) or []
+        if channel < len(block) and isinstance(block[channel], dict):
+            return bool(block[channel].get("Enable"))
+        return None
+
+    async def async_set_detect_enabled(self, kind: str, channel: int, enabled: bool) -> None:
+        """Toggle a detection kind for one channel via the per-channel Detect section.
+
+        GET the whole per-channel sub-section, change only Enable, SET it back — the
+        full Detect block is ~155 KB and times out, and rebuilding would wipe the
+        sensitivity/region masks.
+        """
+        subkey, _cap = DETECT_KINDS[kind]
+        name = f"{CONF_NAME_DETECT}.{subkey}.[{channel}]"
+
         async def _set(client: XMEyeClient) -> None:
-            data = await client.config_get(CONF_NAME_MOTION)
-            if not data:
+            ret, cfg = await client.config_get_raw(name)
+            if ret not in RET_OK or not isinstance(cfg, dict):
+                _LOGGER.warning("Could not read %s (Ret=%s)", name, ret)
                 return
-            entries = data if isinstance(data, list) else [data]
-            if channel < len(entries):
-                entries[channel]["Enable"] = enabled
-            await client.config_set(CONF_NAME_MOTION, entries)
+            cfg["Enable"] = enabled
+            await client.config_set(name, cfg)
+            self.detect_cache.setdefault(subkey, [])
+            if channel < len(self.detect_cache[subkey]):
+                self.detect_cache[subkey][channel]["Enable"] = enabled
 
         await self.async_run_command(_set)
+        self._notify_listeners()
 
-    async def async_set_recording_enabled(self, channel: int, enabled: bool) -> None:
+    def record_mode(self, channel: int) -> str | None:
+        if channel < len(self.record_cache):
+            return self.record_cache[channel].get("RecordMode")
+        return None
+
+    def recording_on(self, channel: int) -> bool | None:
+        mode = self.record_mode(channel)
+        return None if mode is None else mode != RECORD_MODE_OFF
+
+    async def async_set_record_mode(self, channel: int, mode: str) -> None:
+        """Set RecordMode for one channel (GET the Record list, change one, SET)."""
         async def _set(client: XMEyeClient) -> None:
-            cfg_name = self._encode_cfg_name or CONF_NAME_ENCODE
-            data = await client.config_get(cfg_name)
-            if not data:
-                # try alternate
-                cfg_name_alt = CONF_NAME_ENCODE_ALT if cfg_name == CONF_NAME_ENCODE else CONF_NAME_ENCODE
-                data = await client.config_get(cfg_name_alt)
-                if data:
-                    cfg_name = cfg_name_alt
-                    self._encode_cfg_name = cfg_name
-            if not data:
-                _LOGGER.warning("Could not read encode config to set recording state")
+            rec = await client.config_get(CONF_NAME_RECORD)
+            if not isinstance(rec, list) or channel >= len(rec):
+                _LOGGER.warning("Could not read Record config for ch%d", channel + 1)
                 return
-            entries = data if isinstance(data, list) else [data]
-            if channel < len(entries):
-                enc = entries[channel]
-                if "MainFormat" in enc:
-                    mf = enc["MainFormat"]
-                    if "VideoEnable" in mf:
-                        # IPC firmware: top-level VideoEnable flag
-                        mf["VideoEnable"] = enabled
-                    else:
-                        # DVR firmware: nested Video.Enable
-                        mf.setdefault("Video", {})["Enable"] = enabled
-                elif "Video" in enc:
-                    enc["Video"]["Enable"] = enabled
-                else:
-                    enc["Enable"] = enabled
-            await client.config_set(cfg_name, entries)
+            rec[channel]["RecordMode"] = mode
+            await client.config_set(CONF_NAME_RECORD, rec)
+            self.record_cache = rec
 
         await self.async_run_command(_set)
+        self._notify_listeners()
+
+    async def async_set_recording_on(self, channel: int, on: bool) -> None:
+        """Recording switch: ON restores the remembered mode, OFF closes recording."""
+        if on:
+            mode = self._record_restore.pop(channel, RECORD_MODE_SCHEDULE)
+        else:
+            current = self.record_mode(channel)
+            if current and current != RECORD_MODE_OFF:
+                self._record_restore[channel] = current
+            mode = RECORD_MODE_OFF
+        await self.async_set_record_mode(channel, mode)
+
+    async def async_set_privacy(self, channel: int, private: bool) -> None:
+        """HA-side privacy: stop recording + hide the camera entity (no device encode lever)."""
+        if private:
+            self.private_channels.add(channel)
+            await self.async_set_recording_on(channel, False)
+        else:
+            self.private_channels.discard(channel)
+            await self.async_set_recording_on(channel, True)
+        self._notify_listeners()
 
     # ------------------------------------------------------------------
     # Channel detection (which slots have a camera connected)
@@ -526,6 +594,10 @@ class XMEyeCoordinator:
             await self._fetch_device_info_direct(client)
             await self._fetch_storage(client)
             await self._fetch_channel_titles_direct(client)
+            try:
+                await self._fetch_controls(client)
+            except Exception:  # noqa: BLE001
+                _LOGGER.debug("Could not fetch per-channel controls", exc_info=True)
 
             self.connected = True
             self._notify_listeners()
