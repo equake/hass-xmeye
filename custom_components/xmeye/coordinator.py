@@ -43,6 +43,12 @@ _CHANNEL_RECHECK_INTERVAL = timedelta(minutes=5)
 # Event types whose Stop is debounced. Discrete/physical events are excluded.
 _DEBOUNCED_EVENTS = {"MotionDetect", "CrossLineDetection", "PEAAlarm"}
 
+# Best-effort decode of StorageInfo partition fields (reverse-engineered; only the
+# normal value 0 has been observed). Unknown codes are logged at debug and fall back
+# to a generic label / the "error" state, so the enum never trusts an unverified code.
+_HDD_DRIVER_TYPES = {0: "read_write", 1: "read_only", 2: "redundant", 3: "snapshot"}
+_KNOWN_HDD_STATUS = {0}
+
 # Some IPC/DVR firmwares use different names for the same alarm event type.
 # Normalize them to the canonical names used in binary_sensor.py so that
 # sensors fire regardless of which firmware variant sent the event.
@@ -381,24 +387,25 @@ class XMEyeCoordinator:
     async def _fetch_storage(self, client: XMEyeClient) -> None:
         # Storage is runtime info via SystemInfo (cmd 1020); ConfigGet (1042) returns Ret=607.
         raw = await client.system_info(CONF_NAME_STORAGE)
-        disks = raw if isinstance(raw, list) else [raw] if raw else []
-        parsed = [self._parse_storage_entry(d) for d in disks if isinstance(d, dict)]
-        parsed = [e for e in parsed if e.get("total_gb")]
-        if parsed:
-            self.storage_cache = parsed
+        disks = [d for d in (raw if isinstance(raw, list) else [raw]) if isinstance(d, dict)]
+        if disks:
+            # Keep zero-capacity entries too: they surface as the "no_disk" status.
+            self.storage_cache = [self._parse_storage_entry(d) for d in disks]
             return
         _LOGGER.debug(
-            "HDD capacity info not available on %s (queried %s via SystemInfo)",
+            "HDD info not available on %s (queried %s via SystemInfo)",
             self.entry.data.get("host", "device"),
             CONF_NAME_STORAGE,
         )
 
     @staticmethod
     def _parse_storage_entry(disk: dict) -> dict[str, Any]:
-        """Aggregate one physical disk's partitions from a SystemInfo StorageInfo entry.
+        """Map one physical disk (a SystemInfo StorageInfo entry) to sensor fields.
 
-        Spaces are hex strings in MB (e.g. ``"0x001D1C11"``); older firmwares may
-        send plain ints. Each disk holds a ``Partition`` list with TotalSpace/RemainSpace.
+        Spaces are hex strings in MB (e.g. ``"0x001D1C11"``); older firmwares may send
+        plain ints. Each disk holds a ``Partition`` list with TotalSpace/RemainSpace.
+        Capacity and ``IsCurrent`` are reliable; the ``Status``/``DirverType`` ints are
+        best-effort (see _HDD_DRIVER_TYPES / _KNOWN_HDD_STATUS).
         """
         def to_mb(val: object) -> int:
             if isinstance(val, str):
@@ -411,11 +418,37 @@ class XMEyeCoordinator:
                 return int(val)
             return 0
 
+        def clean_time(val: object) -> str | None:
+            text = str(val or "").strip()
+            return None if not text or text.startswith("0000-00-00") else text
+
         partitions = disk.get("Partition") or []
         total_mb = sum(to_mb(p.get("TotalSpace", 0)) for p in partitions)
         remain_mb = sum(to_mb(p.get("RemainSpace", 0)) for p in partitions)
         used_mb = max(total_mb - remain_mb, 0)
-        status = "OK" if all(p.get("Status", 0) == 0 for p in partitions) else "Error"
+
+        sized = [p for p in partitions if to_mb(p.get("TotalSpace", 0)) > 0]
+        for part in sized:
+            code = int(part.get("Status", 0) or 0)
+            if code not in _KNOWN_HDD_STATUS:
+                _LOGGER.debug("Unknown HDD partition Status=%s (treated as error)", code)
+        has_fault = any(int(p.get("Status", 0) or 0) != 0 for p in sized)
+
+        if total_mb == 0:
+            status = "no_disk"
+        elif has_fault:
+            status = "error"
+        elif remain_mb == 0:
+            status = "full"  # full and recycling — normal DVR overwrite mode
+        else:
+            status = "ok"
+
+        # Details come from the partition currently being recorded to (else first sized).
+        current = next(
+            (p for p in partitions if p.get("IsCurrent")),
+            sized[0] if sized else {},
+        )
+        driver_type = int(current.get("DirverType", 0) or 0)
 
         return {
             "name": disk.get("ModelNumber") or disk.get("SerialNumber") or "HDD",
@@ -423,6 +456,16 @@ class XMEyeCoordinator:
             "total_gb": round(total_mb / 1024, 1),
             "used_gb": round(used_mb / 1024, 1),
             "free_gb": round(remain_mb / 1024, 1),
+            "used_pct": round(used_mb / total_mb * 100, 1) if total_mb else None,
+            "model": disk.get("ModelNumber") or None,
+            "serial": disk.get("SerialNumber") or None,
+            "partition_count": len(partitions),
+            "read_write": _HDD_DRIVER_TYPES.get(driver_type, f"type_{driver_type}"),
+            "driver_type": driver_type,
+            "status_code": int(current.get("Status", 0) or 0),
+            "is_recording": bool(current.get("IsCurrent")),
+            "oldest_record": clean_time(current.get("OldStartTime")),
+            "newest_record": clean_time(current.get("NewEndTime")),
         }
 
     # ------------------------------------------------------------------

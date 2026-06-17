@@ -84,7 +84,17 @@
       "firmware": { "name": "Versão do Firmware" },
       "hdd_total": { "name": "HDD Total" },
       "hdd_used": { "name": "HDD Usado" },
-      "hdd_status": { "name": "Status do HDD" }
+      "hdd_free": { "name": "HDD Livre" },
+      "hdd_used_percent": { "name": "HDD Usado %" },
+      "hdd_status": {
+        "name": "Status do HDD",
+        "state": {
+          "ok": "OK",
+          "full": "Cheio (sobrescrevendo)",
+          "no_disk": "Sem disco",
+          "error": "Erro"
+        }
+      }
     }
   }
 }
