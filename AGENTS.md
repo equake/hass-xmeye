@@ -56,13 +56,37 @@ def sofia_hash(password: str) -> str:
     return "".join(chars[(digest[i*2] + digest[i*2+1]) % 62] for i in range(8))
 ```
 
-**Key CMDs**: 1000=login, 1001=login_rsp, 1020=system_info, 1042=config_get, 1400=ptz, 1500=alarm_subscribe, 1504=alarm_notify
+**Commands** (request cmd → response cmd; every request body carries `"SessionID": "0x%08X"`):
 
-**ConfigGet (1042) vs SystemInfo (1020)**: 1042 is for *config* blocks (General, Encode,
-MotionDetect…). Runtime info — **StorageInfo**, SystemInfo, WorkState — is NOT a config block:
-querying it via 1042 returns `Ret=607`. Use `client.system_info(name)` (cmd 1020) instead.
-`StorageInfo` returns a list of disks, each with a `Partition` list whose `TotalSpace`/`RemainSpace`
-are **hex strings in MB** (e.g. `"0x001D1C11"`).
+| CMD | Resp | client method | `Name` in payload | Purpose |
+|-----|------|---------------|-------------------|---------|
+| 1000 | 1001 | `login` | — | Login (MD5 / sofia_hash) |
+| 1006 | 1007 | `keepalive` | `KeepAlive` | Keep session alive |
+| 1020 | 1021 | `system_info` | `SystemInfo` / `StorageInfo` / `WorkState` | Runtime info (see below) |
+| 1040 | 1041 | `config_set` / `reboot` | block name / `OPMachine` | Write config / reboot |
+| 1042 | 1043 | `config_get` | `General`, `Simplify.Encode`, `Encode`, `MotionDetect` | Read config blocks |
+| 1048 | 1049 | `channel_title` | `ChannelTitle` | Channel names |
+| 1400 | — | `ptz_control` | `OPPTZControl` | PTZ (often un-ACKed) |
+| 1500 | — | `subscribe_alarms` | `""` | Subscribe to alarm push |
+| 1504 | — | (push) | `AlarmInfo` | Alarm event notification |
+
+**ConfigGet (1042) vs SystemInfo (1020) — important**: 1042 is only for *config* blocks. Runtime
+info (`SystemInfo`, `StorageInfo`, `WorkState`) is **not** a config block — querying it via 1042
+returns **`Ret=607`**. Use `client.system_info(name)` (cmd 1020) instead.
+
+**`SystemInfo`** (cmd 1020, `Name="SystemInfo"`) → device identity (NOT in `General`):
+- `SoftWareVersion` = firmware · `SerialNo` = serial · `HardWare` = hardware model code
+  (e.g. `NBD80X16S-KL`) · `BuildTime`, `DeviceRunTime`, channel counts.
+
+**`StorageInfo`** (cmd 1020, `Name="StorageInfo"`) → list of physical disks, each:
+`{ModelNumber, SerialNumber, PartNumber, Partition: [...]}`. Each partition has `TotalSpace` /
+`RemainSpace` as **hex strings in MB** (e.g. `"0x001D1C11"`), plus `Status` (0 = OK), `IsCurrent`
+(partition being recorded to), `DirverType` (0 = read/write), and `Old*/New*Time` record windows.
+
+**`WorkState`** (cmd 1020, `Name="WorkState"`) → per-channel record/bitrate state.
+
+**Response codes** (`Ret`): `100`/`515` = OK (`RET_OK`); `607` = wrong command channel for that
+`Name` (e.g. 1042 asked for runtime info); `101`/`106`/`203` = auth failure (`RET_AUTH_FAIL`).
 
 ## Adding Platforms/Entities
 
@@ -80,5 +104,6 @@ ruff check custom_components/
 ## Manual Testing
 
 ```bash
-python test_client.py <host> [port] [username] [password]
+python scripts/test_client.py <host> [port] [username] [password]
 ```
+Prints General config + SystemInfo/StorageInfo (cmd 1020) and then streams alarm events.
