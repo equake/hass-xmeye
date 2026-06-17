@@ -32,11 +32,15 @@ from .const import (
     CONF_CHANNEL_COUNT,
     CONF_DEVICE_TYPE,
     CONF_MOTION_CLEAR_DELAY,
+    CONF_STORAGE_REFRESH_INTERVAL,
     CONFIG_ENTRY_VERSION,
     DEFAULT_MOTION_CLEAR_DELAY,
     DEFAULT_PORT,
+    DEFAULT_STORAGE_REFRESH_INTERVAL,
     DEFAULT_USERNAME,
     DOMAIN,
+    MAX_STORAGE_REFRESH_INTERVAL,
+    MIN_STORAGE_REFRESH_INTERVAL,
     UDP_DISCOVERY_PORT,
 )
 
@@ -360,11 +364,20 @@ class XMEyeOptionsFlow(OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(
                 title="",
-                data={CONF_MOTION_CLEAR_DELAY: int(user_input[CONF_MOTION_CLEAR_DELAY])},
+                data={
+                    CONF_MOTION_CLEAR_DELAY: int(user_input[CONF_MOTION_CLEAR_DELAY]),
+                    CONF_STORAGE_REFRESH_INTERVAL: int(
+                        user_input[CONF_STORAGE_REFRESH_INTERVAL]
+                    ),
+                },
             )
 
+        options = self.config_entry.options
         current_delay = int(
-            self.config_entry.options.get(CONF_MOTION_CLEAR_DELAY, DEFAULT_MOTION_CLEAR_DELAY)
+            options.get(CONF_MOTION_CLEAR_DELAY, DEFAULT_MOTION_CLEAR_DELAY)
+        )
+        current_interval = int(
+            options.get(CONF_STORAGE_REFRESH_INTERVAL, DEFAULT_STORAGE_REFRESH_INTERVAL)
         )
         return self.async_show_form(
             step_id="init",
@@ -374,6 +387,17 @@ class XMEyeOptionsFlow(OptionsFlow):
                         min=0,
                         max=300,
                         step=5,
+                        unit_of_measurement="s",
+                        mode=NumberSelectorMode.SLIDER,
+                    )
+                ),
+                vol.Optional(
+                    CONF_STORAGE_REFRESH_INTERVAL, default=current_interval
+                ): NumberSelector(
+                    NumberSelectorConfig(
+                        min=MIN_STORAGE_REFRESH_INTERVAL,
+                        max=MAX_STORAGE_REFRESH_INTERVAL,
+                        step=30,
                         unit_of_measurement="s",
                         mode=NumberSelectorMode.SLIDER,
                     )

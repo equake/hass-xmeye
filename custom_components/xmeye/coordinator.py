@@ -27,9 +27,13 @@ from .const import (
     CONF_NAME_GENERAL,
     CONF_NAME_MOTION,
     CONF_NAME_STORAGE,
+    CONF_STORAGE_REFRESH_INTERVAL,
     DEFAULT_MOTION_CLEAR_DELAY,
+    DEFAULT_STORAGE_REFRESH_INTERVAL,
     DOMAIN,
+    MAX_STORAGE_REFRESH_INTERVAL,
     MIN_SNAPSHOT_BYTES,
+    MIN_STORAGE_REFRESH_INTERVAL,
     RECONNECT_DELAY,
     SIGNAL_NEW_CHANNEL,
 )
@@ -37,7 +41,6 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 _T = TypeVar("_T")
 
-_STORAGE_REFRESH_INTERVAL = timedelta(seconds=60)
 _CHANNEL_RECHECK_INTERVAL = timedelta(minutes=5)
 
 # Event types whose Stop is debounced. Discrete/physical events are excluded.
@@ -121,10 +124,14 @@ class XMEyeCoordinator:
             name=f"xmeye_{self.entry.entry_id}",
             eager_start=True,
         )
+        interval = int(self.entry.options.get(
+            CONF_STORAGE_REFRESH_INTERVAL, DEFAULT_STORAGE_REFRESH_INTERVAL
+        ))
+        interval = max(MIN_STORAGE_REFRESH_INTERVAL, min(MAX_STORAGE_REFRESH_INTERVAL, interval))
         self._unsub_refresh = async_track_time_interval(
             self.hass,
             self._async_refresh_storage,
-            _STORAGE_REFRESH_INTERVAL,
+            timedelta(seconds=interval),
         )
         self._unsub_channel_check = async_track_time_interval(
             self.hass,

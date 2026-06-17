@@ -55,7 +55,8 @@
         "title": "Opções XMEye / Sofia",
         "description": "Ajuste o comportamento deste dispositivo.",
         "data": {
-          "motion_clear_delay": "Delay para limpar movimento (0 = imediato)"
+          "motion_clear_delay": "Delay para limpar movimento (0 = imediato)",
+          "storage_refresh_interval": "Intervalo de atualização do storage (HDD)"
         }
       }
     }
