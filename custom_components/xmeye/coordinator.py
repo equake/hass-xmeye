@@ -596,7 +596,7 @@ class XMEyeCoordinator:
             await self._fetch_channel_titles_direct(client)
             try:
                 await self._fetch_controls(client)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 _LOGGER.debug("Could not fetch per-channel controls", exc_info=True)
 
             self.connected = True
