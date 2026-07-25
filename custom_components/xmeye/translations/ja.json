@@ -1,0 +1,104 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "XMEye / Sofia デバイス",
+        "description": "XMEye/Sofia の DVR、NVR、または IP カメラに接続します。ネットワーク上のデバイスを自動検出するには、スキャンオプションを使用してください。",
+        "data": {
+          "host": "ホスト / IP アドレス",
+          "port": "ポート",
+          "username": "ユーザー名",
+          "password": "パスワード"
+        }
+      },
+      "discovery": {
+        "title": "ネットワーク検出",
+        "description": "ネットワーク上で {found} 台の XMEye/Sofia デバイスを検出しました。設定するデバイスを選択してください。",
+        "data": {
+          "host": "デバイス"
+        }
+      },
+      "reconfigure": {
+        "title": "XMEye / Sofia デバイスの再設定",
+        "description": "このデバイスの接続設定を更新します。",
+        "data": {
+          "host": "ホスト / IP アドレス",
+          "port": "ポート",
+          "username": "ユーザー名",
+          "password": "新しいパスワード(現在のパスワードを保持する場合は空欄)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "XMEye / Sofia 再認証",
+        "description": "{host} の認証情報が無効になっています。新しい認証情報を入力してください。",
+        "data": {
+          "username": "ユーザー名",
+          "password": "パスワード"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "接続できません — ホストとポートを確認してください",
+      "invalid_auth": "認証情報が無効です — ユーザー名とパスワードを確認してください",
+      "discovery_no_devices": "ネットワーク上にデバイスが見つかりません。手動で接続情報を入力してください。",
+      "unknown": "予期しないエラー — Home Assistant のログを確認してください"
+    },
+    "abort": {
+      "already_configured": "このデバイスは既に設定されています",
+      "reauth_successful": "再認証に成功しました",
+      "unique_id_mismatch": "ホスト/ポートが設定済みデバイスと一致しません"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "XMEye / Sofia オプション",
+        "description": "このデバイスの動作を調整します。",
+        "data": {
+          "motion_clear_delay": "モーション検知解除の遅延 (0 = 即時)",
+          "storage_refresh_interval": "ストレージ(HDD)更新間隔"
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "motion": { "name": "CH{channel} モーション検知" },
+      "video_loss": { "name": "CH{channel} 映像信号消失" },
+      "video_blind": { "name": "CH{channel} 映像遮蔽" },
+      "alarm_input": { "name": "CH{channel} アラーム入力" },
+      "io_alarm": { "name": "CH{channel} I/O アラーム" },
+      "cross_line": { "name": "CH{channel} ライン越境" },
+      "intrusion": { "name": "CH{channel} 侵入検知" }
+    },
+    "camera": {
+      "camera": { "name": "カメラ" }
+    },
+    "switch": {
+      "motion_detection": { "name": "CH{channel} モーション検知" },
+      "human_detection": { "name": "CH{channel} 人体検知" },
+      "face_detection": { "name": "CH{channel} 顔検知" },
+      "recording": { "name": "CH{channel} 録画" },
+      "privacy": { "name": "CH{channel} プライバシー" }
+    },
+    "button": {
+      "reboot": { "name": "再起動" }
+    },
+    "sensor": {
+      "firmware": { "name": "ファームウェアバージョン" },
+      "hdd_total": { "name": "HDD 合計" },
+      "hdd_used": { "name": "HDD 使用中" },
+      "hdd_free": { "name": "HDD 空き" },
+      "hdd_used_percent": { "name": "HDD 使用率" },
+      "hdd_status": {
+        "name": "HDD ステータス",
+        "state": {
+          "ok": "正常",
+          "full": "満杯(上書き中)",
+          "no_disk": "ディスクなし",
+          "error": "エラー"
+        }
+      }
+    }
+  }
+}

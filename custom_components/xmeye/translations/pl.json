@@ -1,0 +1,104 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Urządzenie XMEye / Sofia",
+        "description": "Połącz z DVR, NVR lub kamerą IP XMEye/Sofia. Aby automatycznie wykryć urządzenia w sieci, użyj opcji skanowania.",
+        "data": {
+          "host": "Host / adres IP",
+          "port": "Port",
+          "username": "Nazwa użytkownika",
+          "password": "Hasło"
+        }
+      },
+      "discovery": {
+        "title": "Wykrywanie w sieci lokalnej",
+        "description": "Znaleziono {found} urządzeń XMEye/Sofia w sieci. Wybierz jedno do konfiguracji.",
+        "data": {
+          "host": "Urządzenie"
+        }
+      },
+      "reconfigure": {
+        "title": "Ponowna konfiguracja urządzenia XMEye / Sofia",
+        "description": "Zaktualizuj ustawienia połączenia tego urządzenia.",
+        "data": {
+          "host": "Host / adres IP",
+          "port": "Port",
+          "username": "Nazwa użytkownika",
+          "password": "Nowe hasło (pozostaw puste, aby zachować obecne)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Ponowne uwierzytelnienie XMEye / Sofia",
+        "description": "Dane logowania dla {host} są nieaktualne. Wprowadź nowe dane logowania.",
+        "data": {
+          "username": "Nazwa użytkownika",
+          "password": "Hasło"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nie można nawiązać połączenia — sprawdź host i port",
+      "invalid_auth": "Nieprawidłowe dane logowania — sprawdź nazwę użytkownika i hasło",
+      "discovery_no_devices": "Nie znaleziono urządzeń w sieci. Wprowadź dane połączenia ręcznie.",
+      "unknown": "Nieoczekiwany błąd — sprawdź logi Home Assistant"
+    },
+    "abort": {
+      "already_configured": "To urządzenie jest już skonfigurowane",
+      "reauth_successful": "Ponowne uwierzytelnienie zakończyło się pomyślnie",
+      "unique_id_mismatch": "Host/port nie pasują do skonfigurowanego urządzenia"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opcje XMEye / Sofia",
+        "description": "Dostosuj zachowanie tego urządzenia.",
+        "data": {
+          "motion_clear_delay": "Opóźnienie czyszczenia wykrycia ruchu (0 = natychmiast)",
+          "storage_refresh_interval": "Interwał odświeżania pamięci masowej (HDD)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "motion": { "name": "Ruch CH{channel}" },
+      "video_loss": { "name": "Utrata obrazu CH{channel}" },
+      "video_blind": { "name": "Zaślepienie obrazu CH{channel}" },
+      "alarm_input": { "name": "Wejście alarmowe CH{channel}" },
+      "io_alarm": { "name": "Alarm I/O CH{channel}" },
+      "cross_line": { "name": "Przekroczenie linii CH{channel}" },
+      "intrusion": { "name": "Włamanie CH{channel}" }
+    },
+    "camera": {
+      "camera": { "name": "Kamera" }
+    },
+    "switch": {
+      "motion_detection": { "name": "Wykrywanie ruchu CH{channel}" },
+      "human_detection": { "name": "Wykrywanie osób CH{channel}" },
+      "face_detection": { "name": "Wykrywanie twarzy CH{channel}" },
+      "recording": { "name": "Nagrywanie CH{channel}" },
+      "privacy": { "name": "Prywatność CH{channel}" }
+    },
+    "button": {
+      "reboot": { "name": "Uruchom ponownie" }
+    },
+    "sensor": {
+      "firmware": { "name": "Wersja firmware" },
+      "hdd_total": { "name": "HDD Łącznie" },
+      "hdd_used": { "name": "HDD Użyte" },
+      "hdd_free": { "name": "HDD Wolne" },
+      "hdd_used_percent": { "name": "HDD Użyte %" },
+      "hdd_status": {
+        "name": "Stan HDD",
+        "state": {
+          "ok": "OK",
+          "full": "Pełny (nadpisywanie)",
+          "no_disk": "Brak dysku",
+          "error": "Błąd"
+        }
+      }
+    }
+  }
+}

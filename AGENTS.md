@@ -122,3 +122,18 @@ ruff check custom_components/
 python scripts/test_client.py <host> [port] [username] [password]
 ```
 Prints General config + SystemInfo/StorageInfo (cmd 1020) and then streams alarm events.
+
+## Internationalisation
+
+- Translatable string changes MUST update **every** locale file under
+  `custom_components/xmeye/translations/` in the same commit. Never leave a
+  stale language behind.
+- `strings.json` is the source of truth and MUST stay key-identical to every
+  `<locale>.json`.
+- Translations are **contextual, not literal**: use HA / CCTV industry terms per
+  locale, respect the reader's culture (formal `Sie`, formal `vous`, neutral
+  Spanish that works for ES + LATAM, CCTV-industry terms in zh-Hans, etc.).
+  Channel numbers stay as `{channel}`; their position around the noun follows
+  local convention, not English order.
+- See `docs/i18n.md` for the full translator guide.
+- "Adding Platforms/Entities" step 3 above also updates every locale file.

@@ -1,0 +1,104 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "XMEye / Sofia Cihazı",
+        "description": "Bir XMEye/Sofia DVR, NVR veya IP kameraya bağlanın. Ağınızdaki cihazları otomatik bulmak için tarama seçeneğini kullanın.",
+        "data": {
+          "host": "Ana makine / IP adresi",
+          "port": "Port",
+          "username": "Kullanıcı adı",
+          "password": "Parola"
+        }
+      },
+      "discovery": {
+        "title": "Yerel Ağda Bulma",
+        "description": "Ağınızda {found} XMEye/Sofia cihaz(ı) bulundu. Yapılandırmak için birini seçin.",
+        "data": {
+          "host": "Cihaz"
+        }
+      },
+      "reconfigure": {
+        "title": "XMEye / Sofia Cihazını Yeniden Yapılandır",
+        "description": "Bu cihazın bağlantı ayarlarını güncelleyin.",
+        "data": {
+          "host": "Ana makine / IP adresi",
+          "port": "Port",
+          "username": "Kullanıcı adı",
+          "password": "Yeni parola (mevcut parolayı korumak için boş bırakın)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "XMEye / Sofia Yeniden Kimlik Doğrulama",
+        "description": "{host} için kimlik bilgileriniz artık geçerli değil. Yeni kimlik bilgilerini girin.",
+        "data": {
+          "username": "Kullanıcı adı",
+          "password": "Parola"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Bağlantı kurulamıyor — ana makine ve portu kontrol edin",
+      "invalid_auth": "Geçersiz kimlik bilgileri — kullanıcı adı ve parolayı kontrol edin",
+      "discovery_no_devices": "Ağda cihaz bulunamadı. Bağlantı bilgilerini elle girin.",
+      "unknown": "Beklenmeyen hata — Home Assistant günlüklerini kontrol edin"
+    },
+    "abort": {
+      "already_configured": "Bu cihaz zaten yapılandırılmış",
+      "reauth_successful": "Yeniden kimlik doğrulama başarılı oldu",
+      "unique_id_mismatch": "Ana makine/port, yapılandırılmış cihazla eşleşmiyor"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "XMEye / Sofia Seçenekleri",
+        "description": "Bu cihazın davranışını ayarlayın.",
+        "data": {
+          "motion_clear_delay": "Hareket algılama temizleme gecikmesi (0 = anında)",
+          "storage_refresh_interval": "Depolama (HDD) yenileme aralığı"
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "motion": { "name": "K{channel} Hareket" },
+      "video_loss": { "name": "K{channel} Video Kaybı" },
+      "video_blind": { "name": "K{channel} Video Karartma" },
+      "alarm_input": { "name": "K{channel} Alarm Girişi" },
+      "io_alarm": { "name": "K{channel} I/O Alarmı" },
+      "cross_line": { "name": "K{channel} Hat İhlali" },
+      "intrusion": { "name": "K{channel} İzinsiz Giriş" }
+    },
+    "camera": {
+      "camera": { "name": "Kamera" }
+    },
+    "switch": {
+      "motion_detection": { "name": "K{channel} Hareket Algılama" },
+      "human_detection": { "name": "K{channel} İnsan Algılama" },
+      "face_detection": { "name": "K{channel} Yüz Algılama" },
+      "recording": { "name": "K{channel} Kayıt" },
+      "privacy": { "name": "K{channel} Gizlilik" }
+    },
+    "button": {
+      "reboot": { "name": "Yeniden Başlat" }
+    },
+    "sensor": {
+      "firmware": { "name": "Aygıt yazılımı sürümü" },
+      "hdd_total": { "name": "HDD Toplam" },
+      "hdd_used": { "name": "HDD Kullanılan" },
+      "hdd_free": { "name": "HDD Boş" },
+      "hdd_used_percent": { "name": "HDD Kullanılan %" },
+      "hdd_status": {
+        "name": "HDD Durumu",
+        "state": {
+          "ok": "Tamam",
+          "full": "Doldu (üzerine yazılıyor)",
+          "no_disk": "Disk yok",
+          "error": "Hata"
+        }
+      }
+    }
+  }
+}
