@@ -1,0 +1,104 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Dispositivo XMEye / Sofia",
+        "description": "Connettersi a un DVR, NVR o telecamera IP XMEye/Sofia. Per rilevare automaticamente i dispositivi in rete, utilizzare l'opzione di scansione.",
+        "data": {
+          "host": "Host / indirizzo IP",
+          "port": "Porta",
+          "username": "Nome utente",
+          "password": "Password"
+        }
+      },
+      "discovery": {
+        "title": "Rilevamento in rete locale",
+        "description": "Trovati {found} dispositivi XMEye/Sofia sulla rete. Selezionarne uno da configurare.",
+        "data": {
+          "host": "Dispositivo"
+        }
+      },
+      "reconfigure": {
+        "title": "Riconfigurare il dispositivo XMEye / Sofia",
+        "description": "Aggiornare i parametri di connessione di questo dispositivo.",
+        "data": {
+          "host": "Host / indirizzo IP",
+          "port": "Porta",
+          "username": "Nome utente",
+          "password": "Nuova password (lasciare vuoto per mantenere quella attuale)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Riautenticare XMEye / Sofia",
+        "description": "Le credenziali per {host} non sono più valide. Inserire nuove credenziali.",
+        "data": {
+          "username": "Nome utente",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Impossibile connettersi — verificare host e porta",
+      "invalid_auth": "Credenziali non valide — verificare nome utente e password",
+      "discovery_no_devices": "Nessun dispositivo trovato in rete. Inserire manualmente i dati di connessione.",
+      "unknown": "Errore inatteso — controllare i log di Home Assistant"
+    },
+    "abort": {
+      "already_configured": "Questo dispositivo è già configurato",
+      "reauth_successful": "Riautenticazione riuscita",
+      "unique_id_mismatch": "Host/porta non corrispondono al dispositivo configurato"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opzioni XMEye / Sofia",
+        "description": "Regolare il comportamento di questo dispositivo.",
+        "data": {
+          "motion_clear_delay": "Ritardo di chiusura rilevamento movimento (0 = immediato)",
+          "storage_refresh_interval": "Intervallo di aggiornamento archiviazione (HDD)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "motion": { "name": "Movimento CH{channel}" },
+      "video_loss": { "name": "Perdita video CH{channel}" },
+      "video_blind": { "name": "Video oscurato CH{channel}" },
+      "alarm_input": { "name": "Ingresso allarme CH{channel}" },
+      "io_alarm": { "name": "Allarme I/O CH{channel}" },
+      "cross_line": { "name": "Attraversamento linea CH{channel}" },
+      "intrusion": { "name": "Intrusione CH{channel}" }
+    },
+    "camera": {
+      "camera": { "name": "Telecamera" }
+    },
+    "switch": {
+      "motion_detection": { "name": "Rilevamento movimento CH{channel}" },
+      "human_detection": { "name": "Rilevamento persone CH{channel}" },
+      "face_detection": { "name": "Rilevamento volti CH{channel}" },
+      "recording": { "name": "Registrazione CH{channel}" },
+      "privacy": { "name": "Privacy CH{channel}" }
+    },
+    "button": {
+      "reboot": { "name": "Riavvia" }
+    },
+    "sensor": {
+      "firmware": { "name": "Versione firmware" },
+      "hdd_total": { "name": "HDD Totale" },
+      "hdd_used": { "name": "HDD Usato" },
+      "hdd_free": { "name": "HDD Libero" },
+      "hdd_used_percent": { "name": "HDD Usato %" },
+      "hdd_status": {
+        "name": "Stato HDD",
+        "state": {
+          "ok": "OK",
+          "full": "Pieno (riciclo)",
+          "no_disk": "Disco assente",
+          "error": "Errore"
+        }
+      }
+    }
+  }
+}

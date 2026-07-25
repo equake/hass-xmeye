@@ -1,0 +1,104 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "XMEye / Sofia apparaat",
+        "description": "Maak verbinding met een XMEye/Sofia DVR, NVR of IP-camera. Gebruik de scanoptie om apparaten op uw netwerk automatisch te detecteren.",
+        "data": {
+          "host": "Host / IP-adres",
+          "port": "Poort",
+          "username": "Gebruikersnaam",
+          "password": "Wachtwoord"
+        }
+      },
+      "discovery": {
+        "title": "Netwerkdetectie",
+        "description": "{found} XMEye/Sofia-appara(a)t(en) gevonden op uw netwerk. Selecteer er één om te configureren.",
+        "data": {
+          "host": "Apparaat"
+        }
+      },
+      "reconfigure": {
+        "title": "XMEye / Sofia apparaat herconfigureren",
+        "description": "Werk de verbindingsinstellingen van dit apparaat bij.",
+        "data": {
+          "host": "Host / IP-adres",
+          "port": "Poort",
+          "username": "Gebruikersnaam",
+          "password": "Nieuw wachtwoord (laat leeg om huidige te behouden)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "XMEye / Sofia opnieuw authenticeren",
+        "description": "Uw inloggegevens voor {host} zijn niet meer geldig. Voer nieuwe inloggegevens in.",
+        "data": {
+          "username": "Gebruikersnaam",
+          "password": "Wachtwoord"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kan geen verbinding maken — controleer host en poort",
+      "invalid_auth": "Ongeldige inloggegevens — controleer gebruikersnaam en wachtwoord",
+      "discovery_no_devices": "Geen apparaten gevonden op het netwerk. Voer verbindingsgegevens handmatig in.",
+      "unknown": "Onverwachte fout — controleer de Home Assistant-logboeken"
+    },
+    "abort": {
+      "already_configured": "Dit apparaat is al geconfigureerd",
+      "reauth_successful": "Herauthenticatie was succesvol",
+      "unique_id_mismatch": "Host/poort komt niet overeen met het geconfigureerde apparaat"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "XMEye / Sofia opties",
+        "description": "Pas het gedrag van dit apparaat aan.",
+        "data": {
+          "motion_clear_delay": "Vertraging bewegingsdetectie wissen (0 = onmiddellijk)",
+          "storage_refresh_interval": "Verversingsinterval opslag (HDD)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "motion": { "name": "Beweging CH{channel}" },
+      "video_loss": { "name": "Videosignaalverlies CH{channel}" },
+      "video_blind": { "name": "Video afgedekt CH{channel}" },
+      "alarm_input": { "name": "Alarmingang CH{channel}" },
+      "io_alarm": { "name": "I/O-alarm CH{channel}" },
+      "cross_line": { "name": "Lijnoverschrijding CH{channel}" },
+      "intrusion": { "name": "Inbraak CH{channel}" }
+    },
+    "camera": {
+      "camera": { "name": "Camera" }
+    },
+    "switch": {
+      "motion_detection": { "name": "Bewegingsdetectie CH{channel}" },
+      "human_detection": { "name": "Persoonsdetectie CH{channel}" },
+      "face_detection": { "name": "Gezichtsdetectie CH{channel}" },
+      "recording": { "name": "Opname CH{channel}" },
+      "privacy": { "name": "Privacy CH{channel}" }
+    },
+    "button": {
+      "reboot": { "name": "Herstarten" }
+    },
+    "sensor": {
+      "firmware": { "name": "Firmwareversie" },
+      "hdd_total": { "name": "HDD Totaal" },
+      "hdd_used": { "name": "HDD Gebruikt" },
+      "hdd_free": { "name": "HDD Vrij" },
+      "hdd_used_percent": { "name": "HDD Gebruikt %" },
+      "hdd_status": {
+        "name": "HDD-status",
+        "state": {
+          "ok": "OK",
+          "full": "Vol (overschrijven)",
+          "no_disk": "Geen schijf",
+          "error": "Fout"
+        }
+      }
+    }
+  }
+}

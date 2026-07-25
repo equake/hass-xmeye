@@ -69,7 +69,7 @@ async def async_setup_entry(
     # Populate the control caches so detection switches can be capability-gated.
     try:
         await coordinator.async_refresh_controls()
-    except Exception:  # noqa: BLE001
+    except Exception:
         _LOGGER.debug("Could not pre-fetch controls for switches", exc_info=True)
 
     entities: list[XMEyeSwitch] = []
