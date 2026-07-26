@@ -95,10 +95,10 @@ SIGNAL_NEW_CHANNEL = "xmeye_{}_new_channel"
 # are typically 50 KB+.
 MIN_SNAPSHOT_BYTES = 10_000
 
-# go2rtc (HA-Core built-in since 2024.11) HTTP API.
-# 11984 = HA-Core bundled, 1984 = legacy/standalone. We probe both.
-# When a H.265-only stream is detected we register a transcoded RTSP entry
-# with go2rtc so the browser can play H.264 via WebRTC instead of raw H.265 HLS.
+# go2rtc HTTP API. Normally we reuse the session the `go2rtc` integration
+# already built (unix socket, TCP, external instance — whatever the user
+# runs); these ports are only the fallback scan for a go2rtc that HA does
+# not manage. 11984 = HA bundled with `debug_ui: true`, 1984 = standalone.
 GO2RTC_PORTS: tuple[int, ...] = (11984, 1984)
 GO2RTC_STREAMS_PATH = "/api/streams"
 
@@ -107,5 +107,8 @@ CODEC_H264 = "H264"
 CODEC_H265 = "H265"
 CODEC_UNKNOWN = "unknown"
 
-# Repair-issue identifier for H.265 without go2rtc fallback.
+# Repair-issue identifiers (and translation keys) for H.265 channels.
+# One issue per config entry, not per channel — a 9-channel HVR would
+# otherwise raise nine identical repairs.
 REPAIR_H265_NO_GO2RTC = "h265_no_go2rtc"
+REPAIR_H265_TRANSCODING = "h265_transcoding"
