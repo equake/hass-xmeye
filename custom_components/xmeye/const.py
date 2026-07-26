@@ -10,11 +10,25 @@ CONF_CHANNEL_COUNT = "channel_count"
 CONF_DEVICE_TYPE = "device_type"
 CONF_MOTION_CLEAR_DELAY = "motion_clear_delay"
 CONF_STORAGE_REFRESH_INTERVAL = "storage_refresh_interval"
+CONF_TRANSCODE_H265 = "transcode_h265"
+CONF_TRANSCODE_BITRATE = "transcode_bitrate"
 
 DEFAULT_MOTION_CLEAR_DELAY = 30  # seconds; 0 = disable debounce
 DEFAULT_STORAGE_REFRESH_INTERVAL = 300  # seconds (5 min)
 MIN_STORAGE_REFRESH_INTERVAL = 60  # 1 min
 MAX_STORAGE_REFRESH_INTERVAL = 3600  # 1 hour
+
+# Whether to hand H.265 channels to go2rtc for on-demand H.264 transcoding.
+DEFAULT_TRANSCODE_H265 = True
+
+# Bitrate cap for that transcode, in kbit/s. go2rtc's built-in h264 template
+# carries no rate control at all, so x264 falls back to CRF 23 and spends bits
+# preserving the compression artefacts the DVR already introduced — a 2K main
+# stream measured 6.6 Mbit/s out of a 0.73 Mbit/s H.265 source. `#bitrate=` is
+# applied after the codec args, so it overrides that.
+DEFAULT_TRANSCODE_BITRATE = 2048
+MIN_TRANSCODE_BITRATE = 256
+MAX_TRANSCODE_BITRATE = 8192
 
 # DVRIP message IDs
 MSG_LOGIN = 1000

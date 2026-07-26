@@ -31,6 +31,10 @@ from .const import (
     CODEC_H264,
     CODEC_H265,
     CODEC_UNKNOWN,
+    CONF_TRANSCODE_BITRATE,
+    CONF_TRANSCODE_H265,
+    DEFAULT_TRANSCODE_BITRATE,
+    DEFAULT_TRANSCODE_H265,
     DOMAIN,
     REPAIR_H265_NO_GO2RTC,
     REPAIR_H265_TRANSCODING,
@@ -446,10 +450,22 @@ class XMEyeCamera(XMEyeEntity, Camera):
         """Arm go2rtc transcoding if the chosen stream turned out to be H.265."""
         if self._stream_url is None or self._codec != CODEC_H265:
             return
+        options = self._coordinator.entry.options
+        if not options.get(CONF_TRANSCODE_H265, DEFAULT_TRANSCODE_H265):
+            _LOGGER.info(
+                "ch%d is H.265 but transcoding is disabled for this device — "
+                "leaving the stream to Home Assistant's defaults",
+                self._channel + 1,
+            )
+            # Registers nothing; called only so any advisory left over from
+            # before it was switched off gets cleared.
+            await self._ensure_go2rtc_stream(self._stream_url)
+            return
         _LOGGER.info(
             "ch%d is H.265 — registering with go2rtc (H.265 passthrough + "
-            "on-demand H.264 transcode)",
+            "on-demand H.264 transcode capped at %d kbit/s)",
             self._channel + 1,
+            int(options.get(CONF_TRANSCODE_BITRATE, DEFAULT_TRANSCODE_BITRATE)),
         )
         if not await self._ensure_go2rtc_stream(self._stream_url):
             _LOGGER.debug(
@@ -467,7 +483,7 @@ class XMEyeCamera(XMEyeEntity, Camera):
 
         1. the DVR's RTSP URL — H.265 handed through untouched to clients
            that can decode it (VLC, the mobile apps, Safari);
-        2. ``ffmpeg:<identifier>#video=h264#audio=opus`` — go2rtc's
+        2. ``ffmpeg:<identifier>#video=h264#audio=opus#bitrate=…`` — go2rtc's
            ``AddConsumer`` walks producers in order and only dials this one
            when the previous producer's codecs do not match the consumer, so
            the transcode costs nothing until a browser without HEVC asks.
@@ -478,10 +494,27 @@ class XMEyeCamera(XMEyeEntity, Camera):
         see ``homeassistant/components/go2rtc/__init__.py``:
         ``_update_stream_source`` skips the rewrite when the stream exists
         and one of its producers matches ``await camera.stream_source()``.
+
+        Returns False without touching go2rtc when the user has turned
+        transcoding off for this device.
         """
+        options = self._coordinator.entry.options
+        if not options.get(CONF_TRANSCODE_H265, DEFAULT_TRANSCODE_H265):
+            # Deliberate choice by the user: register nothing and let HA
+            # handle the H.265 stream its own way. Dropping the channel also
+            # clears both advisories — nobody should be nagged about a
+            # trade-off they made on purpose.
+            if self._coordinator.h265_channels.pop(self._channel, None) is not None:
+                _refresh_h265_issues(self.hass, self._coordinator)
+            return False
+
         client: Go2RTCClient | None = self._coordinator.go2rtc_client
         identifier = _go2rtc_identifier(self)
-        sources = [url, f"ffmpeg:{identifier}#video=h264#audio=opus"]
+        bitrate = int(options.get(CONF_TRANSCODE_BITRATE, DEFAULT_TRANSCODE_BITRATE))
+        sources = [
+            url,
+            f"ffmpeg:{identifier}#video=h264#audio=opus#bitrate={bitrate}k",
+        ]
         ok = False
         if client is not None:
             try:

@@ -144,7 +144,9 @@
       "init": {
         "data": {
           "motion_clear_delay": "移动侦测清除延迟 (0 = 立即)",
-          "storage_refresh_interval": "存储设备(硬盘)刷新间隔"
+          "storage_refresh_interval": "存储设备(硬盘)刷新间隔",
+          "transcode_bitrate": "H.264 转码码率上限",
+          "transcode_h265": "为不支持 HEVC 的浏览器把 H.265 转码为 H.264"
         },
         "description": "调整此设备的行为。",
         "title": "XMEye / Sofia 选项"

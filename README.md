@@ -88,8 +88,8 @@ stream with two producers:
 
 ```yaml
 xmeye_<entry_id>_ch<N>_camera:
-  - rtsp://<dvr>:554/user=…&password=…&channel=N&stream=0.sdp   # H.265, passthrough
-  - ffmpeg:xmeye_<entry_id>_ch<N>_camera#video=h264#audio=opus   # H.264, on demand
+  - rtsp://<dvr>:554/user=…&password=…&channel=N&stream=0.sdp                # H.265, passthrough
+  - ffmpeg:xmeye_<entry_id>_ch<N>_camera#video=h264#audio=opus#bitrate=2048k  # H.264, on demand
 ```
 
 go2rtc walks the producers in order and only dials the second one when the first one's
@@ -102,6 +102,22 @@ the first producer. That combination is what stops HA from replacing the stream 
 audio-only variant — its provider skips the rewrite when the stream already exists and one
 of its producers matches the camera's stream source. The registration is re-asserted on
 every `stream_source()` call, so it self-heals.
+
+### Options
+
+Both settings live in the integration's options (⚙️ on the device page) and apply per
+device. Changing either reloads the entry and re-registers the streams.
+
+- **Transcode H.265 to H.264** (default on). Turn it off and the integration registers
+  nothing with go2rtc, leaving H.265 handling to Home Assistant's defaults — live view then
+  only works in clients that decode HEVC. The repair notices disappear too, since the
+  trade-off was made deliberately.
+- **H.264 transcode bitrate cap** (default 2048 kbit/s). go2rtc's built-in h264 template
+  carries no rate control, so x264 falls back to CRF 23 and spends bits preserving the
+  compression artefacts the DVR already introduced. On a 2560×1440 main stream that
+  measured **6.6 Mbit/s out of a 0.73 Mbit/s H.265 source** — nine times the input. The cap
+  becomes `-b:v/-maxrate/-bufsize` on the encoder. Raise it if the picture looks soft on
+  busy scenes; it only affects the transcoded path, never what HEVC-capable clients receive.
 
 Notes:
 

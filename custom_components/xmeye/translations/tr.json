@@ -144,7 +144,9 @@
       "init": {
         "data": {
           "motion_clear_delay": "Hareket algılama temizleme gecikmesi (0 = anında)",
-          "storage_refresh_interval": "Depolama (HDD) yenileme aralığı"
+          "storage_refresh_interval": "Depolama (HDD) yenileme aralığı",
+          "transcode_bitrate": "H.264 dönüştürme bit hızı üst sınırı",
+          "transcode_h265": "HEVC desteklemeyen tarayıcılar için H.265'i H.264'e dönüştür"
         },
         "description": "Bu cihazın davranışını ayarlayın.",
         "title": "XMEye / Sofia Seçenekleri"

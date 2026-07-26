@@ -144,7 +144,9 @@
       "init": {
         "data": {
           "motion_clear_delay": "Verzögerung bis Bewegungsmeldung endet (0 = sofort)",
-          "storage_refresh_interval": "Aktualisierungsintervall für Speicher (HDD)"
+          "storage_refresh_interval": "Aktualisierungsintervall für Speicher (HDD)",
+          "transcode_bitrate": "Bitratenlimit der H.264-Transkodierung",
+          "transcode_h265": "H.265 für Browser ohne HEVC nach H.264 transkodieren"
         },
         "description": "Verhalten dieses Geräts anpassen.",
         "title": "XMEye / Sofia Optionen"
