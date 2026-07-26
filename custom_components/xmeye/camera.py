@@ -14,7 +14,7 @@ import aiohttp
 import voluptuous as vol
 from homeassistant.components.camera import Camera, CameraEntityFeature
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
@@ -363,6 +363,9 @@ class XMEyeCamera(XMEyeEntity, Camera):
         # registered stream name; None otherwise. Used to clean up on
         # entity removal and to switch stream_source() to the go2rtc URL.
         self._go2rtc_stream_name: str | None = None
+        # Privacy nulls stream_source(), which drops the WebRTC provider;
+        # tracked so we can ask HA to re-evaluate when it is lifted.
+        self._was_private = channel in coordinator.private_channels
 
         # Locks prevent concurrent probes if HA calls us before the background task finishes.
         self._snapshot_lock = asyncio.Lock()
@@ -410,6 +413,16 @@ class XMEyeCamera(XMEyeEntity, Camera):
         if self._coordinator.h265_channels.pop(self._channel, None) is not None:
             _refresh_h265_issues(self.hass, self._coordinator)
 
+    @callback
+    def _handle_update(self) -> None:
+        # Leaving privacy gives the camera a stream source again. HA does not
+        # re-evaluate WebRTC providers for that on its own, so nudge it.
+        private = self._channel in self._coordinator.private_channels
+        if private != self._was_private:
+            self._was_private = private
+            self.hass.async_create_task(self.async_refresh_providers())
+        super()._handle_update()
+
     async def _probe_urls(self) -> None:
         """Probe snapshot and RTSP URLs concurrently at startup, then
         arm go2rtc transcoding if the chosen stream is H.265-only."""
@@ -420,6 +433,14 @@ class XMEyeCamera(XMEyeEntity, Camera):
             self._find_stream_url(),
         )
         await self._maybe_register_go2rtc()
+        # HA decided whether to attach a WebRTC provider back in
+        # async_internal_added_to_hass, before any of the above had run, and
+        # it only re-evaluates on its own when a provider registers or the
+        # STREAM feature bit flips. Ask it to look again now that there is a
+        # real stream source — otherwise the camera stays HLS-only and
+        # browsers that cannot decode H.265 fall back to the still-image
+        # proxy at roughly one frame per second.
+        await self.async_refresh_providers()
 
     async def _maybe_register_go2rtc(self) -> None:
         """Arm go2rtc transcoding if the chosen stream turned out to be H.265."""
@@ -650,6 +671,12 @@ class XMEyeCamera(XMEyeEntity, Camera):
     async def stream_source(self) -> str | None:
         """Return the DVR's RTSP URL for the live view.
 
+        Never gated on ``coordinator.connected``: RTSP does not go through
+        the DVRIP alarm socket, and HA asks for the stream source while
+        deciding whether to attach a WebRTC provider — which happens before
+        the coordinator's background connection loop has logged in. Returning
+        None there would leave the camera HLS-only for the rest of its life.
+
         Always the camera's own URL — never a go2rtc loopback URL. Chaining
         go2rtc through its own RTSP server collapses the codec negotiation
         (an RTSP consumer takes the first matching video track and stops
@@ -662,8 +689,6 @@ class XMEyeCamera(XMEyeEntity, Camera):
         two producers here means the state is already correct by the time it
         looks — and self-heals if anything ever replaced it.
         """
-        if not self._coordinator.connected:
-            return None
         if self._channel in self._coordinator.private_channels:
             return None
         url = self._stream_url or self._default_stream_url()

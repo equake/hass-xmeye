@@ -244,3 +244,44 @@ mexe no encoder do usuário**. Passou a haver dois repair issues por device (nã
 Ambos explicam o trade-off: H.264 ocupa ~40–100 % mais disco por minuto que H.265 com
 qualidade equivalente (perto do dobro em cenas com muito movimento; ~15–25 % em baixa
 resolução ou cenas quase estáticas).
+
+---
+
+## 9. Follow-up (v0.8.1) — o provider WebRTC nunca era anexado
+
+Com a v0.8.0 o registro no go2rtc passou a acontecer corretamente (config confirmada em
+campo, os três canais H.265 com os dois producers cada), mas **nenhum cliente consumia via
+go2rtc**: Companion abria em H.265 direto e Chrome caía no still-image proxy (~1 fps), os
+dois com alguns segundos de espera — assinatura clássica do caminho HLS.
+
+Causa: `Camera.async_refresh_providers()` só roda em `async_internal_added_to_hass()`, e
+quando um provider se registra/desregistra, ou quando o bit `CameraEntityFeature.STREAM`
+muda. Nesse primeiro momento:
+
+- `XMEyeCoordinator.async_setup()` dispara `_connection_loop()` como background task e
+  retorna imediatamente, então `coordinator.connected` ainda é `False`;
+- `stream_source()` tinha o guard `if not self._coordinator.connected: return None`;
+- `async_get_supported_provider()` recebe `None` e devolve `None` → `_webrtc_provider`
+  fica `None` → `camera_capabilities` = `{HLS}` para o resto da vida da entidade.
+
+Ironia: o `after_dependencies: [go2rtc]` adicionado na v0.8.0 piorou isso. Antes, se a
+integração `go2rtc` subisse depois das câmeras, o `async_register_webrtc_provider()` dela
+disparava `_async_refresh_providers(hass)` e dava uma segunda chance de anexar o provider.
+
+Correções:
+
+1. Removido o guard `connected` de `stream_source()` — o RTSP não passa pelo socket DVRIP
+   de alarme (era a pendência da §7).
+2. `await self.async_refresh_providers()` no fim de `_probe_urls()`, quando já se conhece
+   a URL e o codec reais.
+3. `_handle_update()` sobrescrito para re-avaliar providers quando o modo privacidade é
+   ligado/desligado — privacidade zera `stream_source()`, e o HA não reavalia sozinho.
+
+Como verificar rapidamente, no console do browser com o frontend do HA aberto:
+
+```js
+await document.querySelector("home-assistant").hass
+  .callWS({type: "camera/capabilities", entity_id: "camera.<sua_camera>"})
+```
+
+Antes: `{frontend_stream_types: ["hls"]}`. Depois: `["hls", "webrtc"]`.
