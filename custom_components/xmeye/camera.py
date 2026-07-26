@@ -29,7 +29,6 @@ from .const import (
     CODEC_H265,
     CODEC_UNKNOWN,
     DOMAIN,
-    GO2RTC_RTSP_PORT,
     SERVICE_PTZ,
     SIGNAL_NEW_CHANNEL,
 )
@@ -370,13 +369,11 @@ class XMEyeCamera(XMEyeEntity, Camera):
         await self._maybe_register_go2rtc()
 
     async def _maybe_register_go2rtc(self) -> None:
-        """If the chosen stream is H.265, register it with go2rtc for auto codec matching.
+        """If the chosen stream is H.265, register it with go2rtc.
 
-        Registers two sources:
-        1. Original RTSP stream (H.265 for compatible clients like Companion App)
-        2. FFmpeg transcoded stream (H.264 for browsers like Chrome/Linux)
-
-        go2rtc will automatically select the appropriate source based on client capabilities.
+        The HA-Core WebRTC Provider will automatically add an FFmpeg source
+        for audio transcoding (PCMA → Opus). Video transcoding is handled
+        by the HA stream component when needed.
         """
         if self._stream_url is None or self._codec != CODEC_H265:
             return
@@ -409,15 +406,15 @@ class XMEyeCamera(XMEyeEntity, Camera):
         name = _go2rtc_stream_name(self._coordinator.entry.entry_id, self._channel)
 
         _LOGGER.info(
-            "ch%d H.265 detected — registering with go2rtc (H.265 native + H.264 transcoded)",
+            "ch%d H.265 detected — registering with go2rtc",
             self._channel + 1,
         )
 
-        ok = await client.register_stream(name, self._stream_url, transcode_to_h264=True)
+        ok = await client.register_stream(name, self._stream_url)
         if ok:
             self._go2rtc_stream_name = name
             _LOGGER.info(
-                "ch%d stream registered with go2rtc as '%s' — auto codec matching enabled",
+                "ch%d stream registered with go2rtc as '%s'",
                 self._channel + 1,
                 name,
             )
@@ -600,8 +597,10 @@ class XMEyeCamera(XMEyeEntity, Camera):
         if self._channel in self._coordinator.private_channels:
             return None
         if self._go2rtc_stream_name is not None:
+            client = self._coordinator.go2rtc_client
+            rtsp_port = client.rtsp_port if client else 8554
             return (
-                f"rtsp://127.0.0.1:{GO2RTC_RTSP_PORT}/{self._go2rtc_stream_name}"
+                f"rtsp://127.0.0.1:{rtsp_port}/{self._go2rtc_stream_name}"
             )
         if self._stream_url is not None:
             return self._stream_url
