@@ -1,7 +1,7 @@
 # XMEye / Sofia — Home Assistant Integration
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-[![HA Version](https://img.shields.io/badge/Home%20Assistant-2026.1%2B-blue)](https://www.home-assistant.io/)
+[![HA Version](https://img.shields.io/badge/Home%20Assistant-2026.3%2B-blue)](https://www.home-assistant.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 A full-featured Home Assistant integration for **XMEye / Sofia / DVRIP** cameras, DVRs and NVRs — the same protocol used by millions of Xiongmai-based devices worldwide.
@@ -278,6 +278,14 @@ The integration maintains **one persistent TCP connection per device** for alarm
 
 - Cameras without a storage slot will always show `unknown`
 - Some firmware versions do not expose storage info via DVRIP
+
+---
+
+## About the brand icon
+
+The integration ships its icon under `custom_components/xmeye/brand/` (`icon.png` 256×256 and `icon@2x.png` 512×512, both RGBA). Home Assistant 2026.3 introduced the [Brands Proxy API](https://developers.home-assistant.io/blog/2026/02/24/brands-proxy-api) — from that release onward, the icon is served from `GET /api/brands/integration/xmeye/icon.png` and shows up correctly in **Settings → Devices & Services**.
+
+If the icon is missing from the **HACS dashboard** (the main store list, or the "update available" tile), that is a known gap in the HACS frontend, not a problem with this repository — see [hacs/integration#5171](https://github.com/hacs/integration/issues/5171). The legacy `home-assistant/brands` repository used to host custom-integration icons, but since February 2026 it auto-closes new submissions and points authors to the local `brand/` folder shipped with the integration, which is what we do here.
 
 ---
 

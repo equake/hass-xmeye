@@ -13,7 +13,7 @@ Branch off `main` (`fix/...`, `feat/...`), commit there, push, and open a PR wit
 |------|-------|
 | Domain | `xmeye` |
 | Protocol | DVRIP (TCP 34567) |
-| Min HA | 2026.1.0 |
+| Min HA | 2026.3.0 |
 | Min Python | 3.12 |
 
 ## Key Files
