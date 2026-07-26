@@ -101,7 +101,6 @@ MIN_SNAPSHOT_BYTES = 10_000
 # with go2rtc so the browser can play H.264 via WebRTC instead of raw H.265 HLS.
 GO2RTC_PORTS: tuple[int, ...] = (11984, 1984)
 GO2RTC_STREAMS_PATH = "/api/streams"
-GO2RTC_RTSP_PORT = 8554  # default go2rtc RTSP listener (rtsp://127.0.0.1:8554/<name>)
 
 # Codec identifiers parsed from RTSP SDP `a=rtpmap`.
 CODEC_H264 = "H264"

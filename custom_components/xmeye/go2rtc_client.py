@@ -36,12 +36,14 @@ class Go2RTCClient:
     def __init__(self) -> None:
         self._session: aiohttp.ClientSession | None = None
         self._base_url: str | None = None
+        self._rtsp_port: int | None = None
         self._lock = asyncio.Lock()
 
     async def _ensure(self) -> str | None:
         """Return the working base URL or None if go2rtc is unreachable.
 
         Holds the lock so concurrent first-callers don't race the probe.
+        Also discovers the RTSP port from the go2rtc API.
         """
         if self._base_url is not None:
             return self._base_url
@@ -57,11 +59,36 @@ class Go2RTCClient:
                         if resp.status < 500:
                             self._base_url = f"http://127.0.0.1:{port}"
                             _LOGGER.debug("go2rtc reachable at %s", self._base_url)
+                            await self._discover_rtsp_port()
                             return self._base_url
                 except (TimeoutError, aiohttp.ClientError, OSError):
                     continue
             _LOGGER.debug("go2rtc not reachable on any of %s", GO2RTC_PORTS)
             return None
+
+    async def _discover_rtsp_port(self) -> None:
+        """Discover the RTSP port from the go2rtc API."""
+        if self._base_url is None or self._session is None:
+            return
+        try:
+            async with self._session.get(
+                f"{self._base_url}/api",
+                timeout=_TIMEOUT,
+            ) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    rtsp_listen = data.get("rtsp", {}).get("listen", "")
+                    if ":" in rtsp_listen:
+                        port_str = rtsp_listen.rsplit(":", 1)[1]
+                        self._rtsp_port = int(port_str)
+                        _LOGGER.debug("go2rtc RTSP port discovered: %d", self._rtsp_port)
+        except (TimeoutError, aiohttp.ClientError, OSError, ValueError) as err:
+            _LOGGER.debug("Failed to discover go2rtc RTSP port: %s", err)
+
+    @property
+    def rtsp_port(self) -> int:
+        """Return the RTSP port (discovered from go2rtc API, or 8554 as fallback)."""
+        return self._rtsp_port or 8554
 
     async def is_available(self) -> bool:
         """Return True if go2rtc answered the probe; cache the result."""
@@ -71,33 +98,18 @@ class Go2RTCClient:
         self,
         name: str,
         source_url: str,
-        *,
-        transcode_to_h264: bool = True,
     ) -> bool:
-        """Register a stream with go2rtc using multiple sources for auto codec matching.
+        """Register a stream with go2rtc.
 
-        When `transcode_to_h264` is True, registers two sources:
-        1. Original RTSP stream (H.265 for compatible clients like Companion App)
-        2. FFmpeg transcoded stream (H.264 for browsers like Chrome/Linux)
-
-        go2rtc will automatically select the appropriate source based on client capabilities.
+        The HA-Core WebRTC Provider will automatically add an FFmpeg source
+        for audio transcoding (PCMA → Opus). Video transcoding is handled
+        by the HA stream component when needed.
         """
         base = await self._ensure()
         if base is None:
             return False
 
-        # Build list of source URLs
-        # Multiple `src` query params = multiple sources for the same stream
-        sources = [source_url]
-
-        if transcode_to_h264:
-            # FFmpeg source uses built-in templates: h264, opus
-            # Syntax: ffmpeg:{input}#video=h264#audio=opus
-            ffmpeg_source = f"ffmpeg:{source_url}#video=h264#audio=opus"
-            sources.append(ffmpeg_source)
-
-        # Use repeated `src` query parameter for multiple sources
-        params = [("src", s) for s in sources] + [("name", name)]
+        params = {"src": source_url, "name": name}
 
         try:
             async with self._session.put(
@@ -108,10 +120,9 @@ class Go2RTCClient:
                 ok = resp.status < 300
                 if ok:
                     _LOGGER.info(
-                        "go2rtc stream registered: name=%s sources=%d (H.265%s)",
+                        "go2rtc stream registered: name=%s source=%s",
                         name,
-                        len(sources),
-                        " + H.264 transcoded" if transcode_to_h264 else "",
+                        source_url,
                     )
                 else:
                     _LOGGER.warning(
