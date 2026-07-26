@@ -1,6 +1,7 @@
 {
   "domain": "xmeye",
   "name": "XMEye / Sofia",
+  "after_dependencies": ["go2rtc", "stream"],
   "codeowners": ["@equake"],
   "config_flow": true,
   "dependencies": [],
@@ -10,5 +11,5 @@
   "issue_tracker": "https://github.com/equake/hass-xmeye/issues",
   "quality_scale": "silver",
   "requirements": [],
-  "version": "0.7.3"
+  "version": "0.8.0"
 }

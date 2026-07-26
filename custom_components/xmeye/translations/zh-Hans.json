@@ -131,8 +131,12 @@
   },
   "issues": {
     "h265_no_go2rtc": {
-      "description": "{host} 的通道 {channel} 仅输出 H.265/HEVC 码流。Home Assistant 的实时预览仅在支持 HEVC 的浏览器中可用(Safari/macOS、Windows 平台安装了 HEVC 扩展的 Edge、移动端 App)。在 Linux 平台的 Chrome/Chromium/Firefox 中,只能看到静态抓图,无法播放实时视频。\n\n如需在任意浏览器中启用实时预览,请通过 HACS 安装 **WebRTC Camera** (AlexxIT),或在 `configuration.yaml` 中通过 `default_config` 启用内置的 go2rtc。集成将自动注册该码流,go2rtc 会实时将 H.265 转码为 H.264。修改后请重启 Home Assistant。",
-      "title": "通道 {channel} 为 H.265 码流 — 实时预览受限"
+      "description": "{host} 的通道 {channels} 只以 H.265/HEVC 推流，且 go2rtc 不可访问，因此 Home Assistant 无法转码。实时画面只能在支持 HEVC 的客户端上观看（macOS 的 Safari、安装了 HEVC 扩展的 Windows Edge、手机 App）；在 Linux 的 Chrome、Chromium 或 Firefox 上，你看到的将是静态图片而非实时视频。\n\n请启用内置的 go2rtc——它随 `configuration.yaml` 中的 `default_config` 一起提供——然后重启 Home Assistant。之后本集成会自行注册该流，go2rtc 会按需把 H.265 转换为 H.264。\n\n或者，在录像机的编码设置中把这些通道改为 H.264（XMEye 或 DVR 菜单 → Encode → Compression），这样完全不需要转码。请注意，在画质相当的前提下，H.264 每分钟占用的磁盘空间比 H.265 多约 40–100%（画面运动剧烈时接近两倍）；如果你录像到磁盘，请预留额外空间。",
+      "title": "{host} 的 H.265：通道 {channels} 无法实时播放"
+    },
+    "h265_transcoding": {
+      "description": "{host} 的通道 {channels} 以 H.265/HEVC 推流。实时画面可以正常观看：go2rtc 会为无法解码 HEVC 的浏览器（Linux 上的 Chrome、Chromium 和 Firefox）实时转换为 H.264，而支持 HEVC 的客户端（VLC、手机 App、Safari）仍然收到未经改动的原始流。\n\n转码会消耗 CPU——每个不支持 HEVC 的观看者都会占用一个 ffmpeg 进程。若要避免，请在录像机的编码设置中把这些通道改为 H.264（XMEye 或 DVR 菜单 → Encode → Compression）。本集成绝不会替你修改该设置。\n\n改动之前请注意：在画质相当的前提下，H.264 每分钟占用的磁盘空间比 H.265 多约 40–100%（画面运动剧烈时接近两倍；低分辨率或基本静止的画面则约多 15–25%）。如果你在 DVR 或 Home Assistant 中录像到磁盘，请预留额外空间或缩短保留时长。",
+      "title": "{host} 的 H.265：通道 {channels} 正在转码"
     }
   },
   "options": {

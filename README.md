@@ -71,12 +71,53 @@ This integration works with any device running the **Xiongmai Sofia firmware** t
 
 ## Known Limitations
 
-- **H.265 streams**: Browsers on Linux (Chrome, Firefox) cannot decode H.265 in HLS/MSE. The integration auto-registers transcoded streams with go2rtc when available, but without go2rtc the live view only works in HEVC-capable browsers (Safari, Edge with HEVC extensions, mobile apps).
+- **H.265 streams**: Chrome, Chromium and Firefox on Linux cannot decode H.265/HEVC. When a channel probes as H.265 the integration registers it with go2rtc as a two-source stream — the raw RTSP URL first, then `ffmpeg:<stream>#video=h264#audio=opus` — so go2rtc hands the untouched H.265 to clients that support it (VLC, the mobile apps, Safari) and only starts a transcode when a client asks for H.264. See [H.265 handling](#h265-handling) below. Without a reachable go2rtc, live view falls back to still images in browsers without HEVC.
 - **Privacy mode is HA-side only**: The "Privacy" switch hides the camera entity and stops recording via `ClosedRecord`, but the device firmware continues to process video. To fully disable a channel, use the Recording switch.
 - **Digital channel HVRs**: On hybrid DVRs, encode settings live on the remote IPCs, not the DVR itself. The Privacy switch works around this by hiding the entity and forcing `ClosedRecord` HA-side.
 - **Old firmware**: Devices with firmware older than ~2017 may use a different alarm packet format and not all event types may be recognized.
 - **PTZ support varies**: Not all XMEye cameras support PTZ. The `xmeye.ptz` service will silently fail on non-PTZ devices.
 - **No two-way audio**: The DVRIP protocol supports audio, but this integration does not implement audio streaming or two-way talk.
+
+---
+
+## H.265 handling
+
+Each channel's RTSP stream is probed at startup and its codec read from the SDP. H.264
+channels are left completely alone. For H.265 channels the integration registers a go2rtc
+stream with two producers:
+
+```yaml
+xmeye_<entry_id>_ch<N>_camera:
+  - rtsp://<dvr>:554/user=…&password=…&channel=N&stream=0.sdp   # H.265, passthrough
+  - ffmpeg:xmeye_<entry_id>_ch<N>_camera#video=h264#audio=opus   # H.264, on demand
+```
+
+go2rtc walks the producers in order and only dials the second one when the first one's
+codecs do not match what the client asked for, so the ffmpeg transcode does not run until
+a browser without HEVC opens the camera.
+
+The stream is deliberately registered under the name Home Assistant's own go2rtc provider
+uses (`<platform>_<unique_id>`), and `stream_source()` returns exactly the RTSP URL used as
+the first producer. That combination is what stops HA from replacing the stream with its
+audio-only variant — its provider skips the rewrite when the stream already exists and one
+of its producers matches the camera's stream source. The registration is re-asserted on
+every `stream_source()` call, so it self-heals.
+
+Notes:
+
+- **Any go2rtc works.** The integration reuses the connection the `go2rtc` integration
+  already set up, so it works with the HA-managed binary (unix socket, no TCP port),
+  with `go2rtc: debug_ui: true`, and with an external instance configured via
+  `go2rtc: url:`. If HA does not manage a go2rtc at all, it falls back to probing
+  `127.0.0.1:11984` and `127.0.0.1:1984`.
+- **External go2rtc users:** registering a stream through the go2rtc API rewrites that
+  stream's entry in `go2rtc.yaml` on disk. Only the `xmeye_…_camera` names are touched;
+  your own stream names are left alone. Home Assistant itself already behaves this way.
+- **Prefer H.264 at the source.** Transcoding costs one ffmpeg process per viewer without
+  HEVC. Setting the affected channels to H.264 in the recorder's encode settings removes
+  that cost entirely — but H.264 needs roughly 40–100 % more disk space per minute of
+  recorded video than H.265 at comparable quality. The integration never changes that
+  setting for you; it only raises a dismissible repair notice explaining the trade-off.
 
 ---
 

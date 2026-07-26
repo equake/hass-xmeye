@@ -131,8 +131,12 @@
   },
   "issues": {
     "h265_no_go2rtc": {
-      "description": "{host} のチャンネル {channel} は H.265/HEVC のみを出力します。Home Assistant のライブビューは、HEVC 対応ブラウザ (Safari/macOS、HEVC 拡張機能を有効にした Windows 版 Edge、モバイルアプリ) でのみ動作します。Linux 版 Chrome/Chromium/Firefox ではライブ映像の代わりに静止画像が表示されます。\n\n任意のブラウザでライブビューを有効にするには、HACS から **WebRTC Camera** (AlexxIT) をインストールするか、`configuration.yaml` の `default_config` でバンドル版の go2rtc を有効にしてください。統合が自動的にストリームを登録し、go2rtc が H.265 をリアルタイムで H.264 にトランスコードします。変更後に Home Assistant を再起動してください。",
-      "title": "チャンネル {channel} の H.265 ストリーム — ライブビュー制限"
+      "description": "{host} のチャンネル {channels} は H.265/HEVC でしか配信されず、go2rtc にも接続できないため、Home Assistant は変換できません。ライブ表示は HEVC に対応したクライアントでのみ動作します（macOS の Safari、HEVC 拡張機能を入れた Windows の Edge、モバイルアプリ）。Linux の Chrome、Chromium、Firefox ではライブ映像の代わりに静止画が表示されます。\n\n付属の go2rtc を有効にしてください。`configuration.yaml` の `default_config` に含まれています。有効化後に Home Assistant を再起動すると、統合がストリームを自ら登録し、go2rtc が必要に応じて H.265 を H.264 に変換します。\n\nあるいは、レコーダーのエンコード設定でこれらのチャンネルを H.264 に変更すれば（XMEye または DVR のメニュー → Encode → Compression）、変換自体が不要になります。ただし同等の画質では、H.264 は H.265 より 1 分あたりのディスク使用量が約 40〜100% 増えます（動きの多い場面ではほぼ 2 倍）。ディスクに録画している場合は追加の容量を見込んでください。",
+      "title": "{host} の H.265: チャンネル {channels} はライブ再生できません"
+    },
+    "h265_transcoding": {
+      "description": "{host} のチャンネル {channels} は H.265/HEVC で配信されています。ライブ表示は動作します。HEVC をデコードできないブラウザー（Linux の Chrome、Chromium、Firefox）向けに go2rtc がリアルタイムで H.264 に変換し、HEVC に対応するクライアント（VLC、モバイルアプリ、Safari）には元のストリームがそのまま届きます。\n\n変換には CPU を使います。HEVC 非対応の視聴者ごとに ffmpeg プロセスが 1 つ起動します。これを避けるには、レコーダーのエンコード設定でこれらのチャンネルを H.264 に変更してください（XMEye または DVR のメニュー → Encode → Compression）。この統合がその設定を代わりに変更することはありません。\n\n変更する前に: 同等の画質では、H.264 は H.265 より 1 分あたりのディスク使用量が約 40〜100% 増えます（動きの多い場面ではほぼ 2 倍、低解像度やほぼ静止した場面では 15〜25% 程度）。DVR または Home Assistant でディスクに録画している場合は、追加の容量を見込むか保存期間を短くしてください。",
+      "title": "{host} の H.265: チャンネル {channels} をトランスコード中"
     }
   },
   "options": {

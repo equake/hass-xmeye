@@ -120,10 +120,17 @@ class XMEyeCoordinator:
         self._unsub_channel_check: Callable[[], None] | None = None
         # Pending debounce timers: (channel, event_type) → unsub callable
         self._clear_unsubs: dict[tuple[int, str], Callable[[], None]] = {}
-        # Shared HTTP client to the local go2rtc instance, if any. Camera
-        # entities call into it to register/unregister transcoded streams
-        # when a channel is H.265-only. Lazily created on first use.
-        self.go2rtc_client: Go2RTCClient | None = Go2RTCClient()
+        # Shared HTTP client to whichever go2rtc this HA talks to. Camera
+        # entities use it to register the multi-source streams that let
+        # H.265-only channels play in browsers without HEVC. The endpoint is
+        # resolved lazily on first use.
+        self.go2rtc_client: Go2RTCClient | None = Go2RTCClient(hass)
+        # Channels detected as H.265 → True when go2rtc is transcoding them,
+        # False when it is not reachable. Drives the repair issues and
+        # diagnostics.
+        self.h265_channels: dict[int, bool] = {}
+        # Per-channel stream probe results, for diagnostics only.
+        self.stream_info: dict[int, dict[str, Any]] = {}
 
     # ------------------------------------------------------------------
     # Lifecycle

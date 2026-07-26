@@ -131,8 +131,12 @@
   },
   "issues": {
     "h265_no_go2rtc": {
-      "description": "Kanaal {channel} van {host} streamt alleen H.265/HEVC. De live-weergave in Home Assistant werkt alleen in browsers met HEVC-ondersteuning (Safari/macOS, Edge op Windows met HEVC-extensies, mobiele apps). Op Linux Chrome/Chromium/Firefox ziet u een stilstaand beeld in plaats van live video.\n\nOm de live-weergave in elke browser in te schakelen, installeert u **WebRTC Camera** (AlexxIT) via HACS, of schakelt u de ingebouwde go2rtc in via `default_config` in `configuration.yaml`. De integratie registreert de stream dan automatisch en go2rtc transcodeert H.265 in realtime naar H.264. Herstart Home Assistant na de wijziging.",
-      "title": "H.265-stream op kanaal {channel} — live-weergave beperkt"
+      "description": "De kanalen {channels} van {host} zenden alleen H.265/HEVC uit en go2rtc is niet bereikbaar, dus Home Assistant kan niet omzetten. De live-weergave werkt alleen op clients met HEVC-ondersteuning (Safari op macOS, Edge op Windows met de HEVC-extensies, de mobiele apps); op Linux tonen Chrome, Chromium en Firefox een stilstaand beeld in plaats van live video.\n\nSchakel de meegeleverde go2rtc in — die hoort bij `default_config` in `configuration.yaml` — en herstart Home Assistant. De integratie registreert de stream dan zelf en go2rtc zet H.265 op aanvraag om naar H.264.\n\nU kunt die kanalen ook op H.264 zetten in de encoder-instellingen van de recorder (XMEye of het DVR-menu → Encode → Compression); dan is omzetten helemaal niet nodig. Houd er rekening mee dat H.264 bij vergelijkbare kwaliteit ongeveer 40–100% meer schijfruimte per minuut gebruikt dan H.265 (bijna het dubbele bij veel beweging); als u naar schijf opneemt, reken dan op de extra opslag.",
+      "title": "H.265 op {host}: kanalen {channels} kunnen niet live worden bekeken"
+    },
+    "h265_transcoding": {
+      "description": "De kanalen {channels} van {host} zenden uit in H.265/HEVC. De live-weergave werkt: go2rtc zet ze direct om naar H.264 voor browsers die HEVC niet kunnen decoderen (Chrome, Chromium en Firefox op Linux), terwijl clients die HEVC wél ondersteunen (VLC, de mobiele apps, Safari) de originele stream ongewijzigd blijven ontvangen.\n\nDe omzetting kost CPU — één ffmpeg-proces per kijker zonder HEVC-ondersteuning. Om dat te vermijden, zet u die kanalen op H.264 in de encoder-instellingen van de recorder (XMEye of het DVR-menu → Encode → Compression). Deze integratie wijzigt die instelling nooit voor u.\n\nVoordat u overstapt: bij vergelijkbare kwaliteit gebruikt H.264 ongeveer 40–100% meer schijfruimte per minuut dan H.265 (bijna het dubbele bij veel beweging, eerder 15–25% meer bij lage resolutie of vrijwel statische beelden). Als u naar schijf opneemt, op de DVR of in Home Assistant, reken dan op de extra opslag of verkort de bewaartermijn.",
+      "title": "H.265 op {host}: kanalen {channels} worden getranscodeerd"
     }
   },
   "options": {

@@ -6,6 +6,9 @@ import asyncio
 import hashlib
 import logging
 import re
+import string
+from collections.abc import Callable
+from urllib.parse import quote
 
 import aiohttp
 import voluptuous as vol
@@ -29,6 +32,8 @@ from .const import (
     CODEC_H265,
     CODEC_UNKNOWN,
     DOMAIN,
+    REPAIR_H265_NO_GO2RTC,
+    REPAIR_H265_TRANSCODING,
     SERVICE_PTZ,
     SIGNAL_NEW_CHANNEL,
 )
@@ -38,17 +43,73 @@ from .go2rtc_client import Go2RTCClient
 
 _LOGGER = logging.getLogger(__name__)
 
-_REPAIR_H265_PREFIX = "h265_no_go2rtc"
+# Mirror of homeassistant.components.go2rtc.util._SAFE_CHARS.
+_GO2RTC_SAFE_CHARS = string.ascii_letters + string.digits + "._-"
+
+_identifier_impl: Callable[[Camera], str] | None = None
 
 
-def _go2rtc_stream_name(entry_id: str, channel: int) -> str:
-    """Stable, unique name for a go2rtc stream entry (entity-scoped)."""
-    return f"xmeye_{entry_id}_ch{channel + 1}"
+def _fallback_identifier(camera: Camera) -> str:
+    """Local copy of homeassistant.components.go2rtc.util.get_camera_identifier."""
+    attr = camera.entity_id
+    if camera.unique_id is not None:
+        attr = f"{camera.platform.platform_name}_{camera.unique_id}"
+    return quote(attr, safe=_GO2RTC_SAFE_CHARS)
 
 
-def _h265_issue_id(entry_id: str, channel: int) -> str:
-    """Stable repair-issue id for one (entry, channel) pair."""
-    return f"{_REPAIR_H265_PREFIX}_{entry_id}_ch{channel + 1}"
+def _go2rtc_identifier(camera: Camera) -> str:
+    """Return the go2rtc stream name HA itself uses for this camera.
+
+    We import HA's own helper when it is importable so we automatically
+    track any change on its side; the local copy keeps us working on HA
+    builds where the go2rtc component (or its requirements) is absent.
+    """
+    global _identifier_impl
+    impl = _identifier_impl
+    if impl is None:
+        try:
+            from homeassistant.components.go2rtc.util import get_camera_identifier
+
+            impl = get_camera_identifier
+        except Exception:  # noqa: BLE001 - optional component, any failure is fine
+            impl = _fallback_identifier
+        _identifier_impl = impl
+    return impl(camera)
+
+
+def _refresh_h265_issues(hass: HomeAssistant, coordinator: XMEyeCoordinator) -> None:
+    """Rebuild this device's H.265 repair issues from coordinator state.
+
+    Two mutually exclusive advisories, both dismissible:
+    `h265_transcoding` when go2rtc is doing the H.265 → H.264 conversion
+    (works, but costs CPU), `h265_no_go2rtc` when it cannot (live view
+    degrades to still images in browsers without HEVC).
+    """
+    entry = coordinator.entry
+    states = coordinator.h265_channels
+    buckets = {
+        REPAIR_H265_TRANSCODING: sorted(ch + 1 for ch, ok in states.items() if ok),
+        REPAIR_H265_NO_GO2RTC: sorted(ch + 1 for ch, ok in states.items() if not ok),
+    }
+    for translation_key, channels in buckets.items():
+        issue_id = f"{translation_key}_{entry.entry_id}"
+        if not channels:
+            async_delete_issue(hass, DOMAIN, issue_id)
+            continue
+        async_create_issue(
+            hass,
+            DOMAIN,
+            issue_id,
+            breaks_in_ha_version=None,
+            is_fixable=False,
+            is_persistent=False,
+            severity=IssueSeverity.WARNING,
+            translation_key=translation_key,
+            translation_placeholders={
+                "channels": ", ".join(str(ch) for ch in channels),
+                "host": entry.data[CONF_HOST],
+            },
+        )
 
 # Snapshot paths tried in order; first to return a valid JPEG frame is cached.
 # Placeholders:
@@ -344,18 +405,10 @@ class XMEyeCamera(XMEyeEntity, Camera):
                         "go2rtc unregister failed for %s", self._go2rtc_stream_name
                     )
             self._go2rtc_stream_name = None
-        # Resolve any repair issue we created for this channel. Other
-        # channels from the same device may still be H.265 — they will
-        # re-create the issue on their own probe.
-        if self._codec == CODEC_H265:
-            try:
-                async_delete_issue(
-                    self.hass,
-                    DOMAIN,
-                    _h265_issue_id(self._coordinator.entry.entry_id, self._channel),
-                )
-            except Exception:  # noqa: BLE001
-                pass
+        # Drop this channel from the device-wide H.265 advisory. Sibling
+        # channels keep theirs.
+        if self._coordinator.h265_channels.pop(self._channel, None) is not None:
+            _refresh_h265_issues(self.hass, self._coordinator)
 
     async def _probe_urls(self) -> None:
         """Probe snapshot and RTSP URLs concurrently at startup, then
@@ -369,62 +422,61 @@ class XMEyeCamera(XMEyeEntity, Camera):
         await self._maybe_register_go2rtc()
 
     async def _maybe_register_go2rtc(self) -> None:
-        """If the chosen stream is H.265, register it with go2rtc for auto codec matching.
-
-        Registers two sources:
-        1. Original RTSP stream (H.265 for compatible clients like VLC, Companion App)
-        2. FFmpeg transcoded stream (H.264 for browsers like Chrome/Linux via WebRTC)
-
-        go2rtc will automatically select the appropriate source based on client capabilities.
-        """
+        """Arm go2rtc transcoding if the chosen stream turned out to be H.265."""
         if self._stream_url is None or self._codec != CODEC_H265:
             return
-        client: Go2RTCClient | None = self._coordinator.go2rtc_client
-        if client is None:
-            return
-        if not await client.is_available():
+        _LOGGER.info(
+            "ch%d is H.265 — registering with go2rtc (H.265 passthrough + "
+            "on-demand H.264 transcode)",
+            self._channel + 1,
+        )
+        if not await self._ensure_go2rtc_stream(self._stream_url):
             _LOGGER.debug(
-                "ch%d H.265 detected but go2rtc is not running — live view will "
-                "only work in HEVC-capable browsers (Safari/macOS, Edge/Windows "
-                "with HEVC extensions, mobile apps). Linux Chrome/Firefox will "
+                "ch%d H.265 but go2rtc is not usable — live view will only work "
+                "in HEVC-capable clients (Safari/macOS, Edge/Windows with the "
+                "HEVC extensions, the mobile apps). Linux Chrome/Firefox will "
                 "fall back to still-image snapshots.",
                 self._channel + 1,
             )
-            async_create_issue(
-                self.hass,
-                DOMAIN,
-                _h265_issue_id(self._coordinator.entry.entry_id, self._channel),
-                breaks_in_ha_version=None,
-                is_fixable=False,
-                is_persistent=False,
-                severity=IssueSeverity.WARNING,
-                translation_key="h265_no_go2rtc",
-                translation_placeholders={
-                    "channel": str(self._channel + 1),
-                    "host": self._host,
-                },
-            )
-            return
-        name = _go2rtc_stream_name(self._coordinator.entry.entry_id, self._channel)
 
-        _LOGGER.info(
-            "ch%d H.265 detected — registering with go2rtc (H.265 native + H.264 transcoded)",
-            self._channel + 1,
-        )
+    async def _ensure_go2rtc_stream(self, url: str) -> bool:
+        """(Re)register this channel under the stream name HA itself uses.
 
-        ok = await client.register_stream(name, self._stream_url)
+        Two producers, in this order:
+
+        1. the DVR's RTSP URL — H.265 handed through untouched to clients
+           that can decode it (VLC, the mobile apps, Safari);
+        2. ``ffmpeg:<identifier>#video=h264#audio=opus`` — go2rtc's
+           ``AddConsumer`` walks producers in order and only dials this one
+           when the previous producer's codecs do not match the consumer, so
+           the transcode costs nothing until a browser without HEVC asks.
+
+        Registering under HA's own identifier, with source 1 byte-identical
+        to what :meth:`stream_source` returns, is what stops HA's go2rtc
+        provider from replacing the stream with its audio-only variant —
+        see ``homeassistant/components/go2rtc/__init__.py``:
+        ``_update_stream_source`` skips the rewrite when the stream exists
+        and one of its producers matches ``await camera.stream_source()``.
+        """
+        client: Go2RTCClient | None = self._coordinator.go2rtc_client
+        identifier = _go2rtc_identifier(self)
+        sources = [url, f"ffmpeg:{identifier}#video=h264#audio=opus"]
+        ok = False
+        if client is not None:
+            try:
+                ok = await client.ensure_stream(identifier, sources)
+            except Exception:  # never break the live view
+                _LOGGER.debug(
+                    "ch%d go2rtc registration raised", self._channel + 1, exc_info=True
+                )
         if ok:
-            self._go2rtc_stream_name = name
-            _LOGGER.info(
-                "ch%d stream registered with go2rtc as '%s' — auto codec matching enabled",
-                self._channel + 1,
-                name,
-            )
-        else:
-            _LOGGER.warning(
-                "ch%d H.265 stream — go2rtc registration failed; falling back to direct RTSP",
-                self._channel + 1,
-            )
+            self._go2rtc_stream_name = identifier
+        # Keep the device-wide advisory in step: go2rtc coming or going flips
+        # which of the two repair issues applies.
+        if self._coordinator.h265_channels.get(self._channel) != ok:
+            self._coordinator.h265_channels[self._channel] = ok
+            _refresh_h265_issues(self.hass, self._coordinator)
+        return ok
 
     # ------------------------------------------------------------------
     # Snapshot discovery
@@ -537,6 +589,12 @@ class XMEyeCamera(XMEyeEntity, Camera):
 
             if best is not None:
                 self._stream_url, self._codec, self._stream_idx = best
+                self._coordinator.stream_info[self._channel] = {
+                    "codec": self._codec,
+                    "stream_idx": self._stream_idx,
+                    "url": re.sub(r"password=[^&]*", "password=***", self._stream_url),
+                    "go2rtc_identifier": _go2rtc_identifier(self),
+                }
                 _LOGGER.debug(
                     "Stream URL cached for ch%d: codec=%s stream=%d url=%s",
                     self._channel + 1, self._codec, self._stream_idx, self._stream_url,
@@ -580,39 +638,38 @@ class XMEyeCamera(XMEyeEntity, Camera):
         self._snapshot_path = None
         return None
 
-    async def stream_source(self) -> str | None:
-        """Return the URL HA should open for the live view.
-
-        Resolution order:
-        1. If we registered a transcoded go2rtc stream for this channel
-           (H.265 input → H.264 output), return the go2rtc RTSP URL.
-           HA-Core's bundled go2rtc will hand it to the browser as
-           WebRTC H.264, which works on every browser.
-        2. Otherwise return the probed RTSP URL (H.264 or other codec
-           that the browser can decode natively via HLS).
-        3. If the background probe is still running, return the standard
-           XMEye URL as a best-effort so HA can attempt to connect
-           immediately.
-        """
-        if not self._coordinator.connected:
-            return None
-        if self._channel in self._coordinator.private_channels:
-            return None
-        if self._go2rtc_stream_name is not None:
-            client = self._coordinator.go2rtc_client
-            rtsp_port = client.rtsp_port if client else 8554
-            return (
-                f"rtsp://127.0.0.1:{rtsp_port}/{self._go2rtc_stream_name}"
-            )
-        if self._stream_url is not None:
-            return self._stream_url
-        # Background probe still running — return the default URL as a best-effort.
+    def _default_stream_url(self) -> str:
+        """Standard XMEye main-stream URL, used until the probe finishes."""
         h = sofia_hash(self._password)
         return (
             f"rtsp://{self._host}:{_RTSP_PORT}"
             f"/user={self._username}&password={h}"
             f"&channel={self._channel + 1}&stream=0.sdp"
         )
+
+    async def stream_source(self) -> str | None:
+        """Return the DVR's RTSP URL for the live view.
+
+        Always the camera's own URL — never a go2rtc loopback URL. Chaining
+        go2rtc through its own RTSP server collapses the codec negotiation
+        (an RTSP consumer takes the first matching video track and stops
+        looking, so it would always land on H.265), and it would break the
+        HLS/recording path, which cannot read a go2rtc-only source.
+
+        For H.265 channels this is also the hook where we repair the go2rtc
+        registration: HA's provider calls ``stream_source()`` immediately
+        before deciding whether to overwrite the stream, so re-asserting our
+        two producers here means the state is already correct by the time it
+        looks — and self-heals if anything ever replaced it.
+        """
+        if not self._coordinator.connected:
+            return None
+        if self._channel in self._coordinator.private_channels:
+            return None
+        url = self._stream_url or self._default_stream_url()
+        if self._codec == CODEC_H265:
+            await self._ensure_go2rtc_stream(url)
+        return url
 
     # ------------------------------------------------------------------
     # PTZ
