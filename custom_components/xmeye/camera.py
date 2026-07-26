@@ -370,13 +370,13 @@ class XMEyeCamera(XMEyeEntity, Camera):
         await self._maybe_register_go2rtc()
 
     async def _maybe_register_go2rtc(self) -> None:
-        """If the chosen stream is H.265, register it with go2rtc for transcoding.
+        """If the chosen stream is H.265, register it with go2rtc for auto codec matching.
 
-        Best-effort: any failure is logged and swallowed. On success,
-        stores the registered name in `self._go2rtc_stream_name` so the
-        entity removal hook can DELETE it from go2rtc. If go2rtc is
-        unreachable, creates a repair issue pointing the user at the
-        install / config path.
+        Registers two sources:
+        1. Original RTSP stream (H.265 for compatible clients like Companion App)
+        2. FFmpeg transcoded stream (H.264 for browsers like Chrome/Linux)
+
+        go2rtc will automatically select the appropriate source based on client capabilities.
         """
         if self._stream_url is None or self._codec != CODEC_H265:
             return
@@ -407,18 +407,23 @@ class XMEyeCamera(XMEyeEntity, Camera):
             )
             return
         name = _go2rtc_stream_name(self._coordinator.entry.entry_id, self._channel)
+
+        _LOGGER.info(
+            "ch%d H.265 detected — registering with go2rtc (H.265 native + H.264 transcoded)",
+            self._channel + 1,
+        )
+
         ok = await client.register_stream(name, self._stream_url, transcode_to_h264=True)
         if ok:
             self._go2rtc_stream_name = name
-            _LOGGER.debug(
-                "ch%d H.265 stream registered with go2rtc as %s — browser WebRTC "
-                "will play transcoded H.264",
-                self._channel + 1, name,
+            _LOGGER.info(
+                "ch%d stream registered with go2rtc as '%s' — auto codec matching enabled",
+                self._channel + 1,
+                name,
             )
         else:
             _LOGGER.warning(
-                "ch%d H.265 stream — go2rtc register failed; live view will "
-                "only work in HEVC-capable browsers",
+                "ch%d H.265 stream — go2rtc registration failed; falling back to direct RTSP",
                 self._channel + 1,
             )
 
