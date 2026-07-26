@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
 
 import aiohttp
 
@@ -75,37 +74,50 @@ class Go2RTCClient:
         *,
         transcode_to_h264: bool = True,
     ) -> bool:
-        """Register a stream with go2rtc. Idempotent (PUT upserts by name).
+        """Register a stream with go2rtc using multiple sources for auto codec matching.
 
-        If `transcode_to_h264` is True, attaches an ffmpeg consumer that
-        re-encodes the video to H.264 (the original audio, when present,
-        is copied). This is the lever that makes H.265 streams watchable
-        in Linux browsers — the registered RTSP endpoint serves H.264.
+        When `transcode_to_h264` is True, registers two sources:
+        1. Original RTSP stream (H.265 for compatible clients like Companion App)
+        2. FFmpeg transcoded stream (H.264 for browsers like Chrome/Linux)
+
+        go2rtc will automatically select the appropriate source based on client capabilities.
         """
         base = await self._ensure()
         if base is None:
             return False
-        payload: dict[str, Any] = {
-            "name": name,
-            "urls": [source_url],
-        }
+
+        # Build list of source URLs
+        # Multiple `src` query params = multiple sources for the same stream
+        sources = [source_url]
+
         if transcode_to_h264:
-            payload["ffmpeg"] = "-c:v libx264 -preset ultrafast -tune zerolatency -an"
+            # FFmpeg source uses built-in templates: h264, opus
+            # Syntax: ffmpeg:{input}#video=h264#audio=opus
+            ffmpeg_source = f"ffmpeg:{source_url}#video=h264#audio=opus"
+            sources.append(ffmpeg_source)
+
+        # Use repeated `src` query parameter for multiple sources
+        params = [("src", s) for s in sources] + [("name", name)]
+
         try:
-            async with self._session.put(  # type: ignore[union-attr]
+            async with self._session.put(
                 f"{base}{GO2RTC_STREAMS_PATH}",
-                json=payload,
+                params=params,
                 timeout=_TIMEOUT,
             ) as resp:
                 ok = resp.status < 300
                 if ok:
-                    _LOGGER.debug(
-                        "go2rtc stream registered: name=%s source=%s transcode=%s",
-                        name, source_url, transcode_to_h264,
+                    _LOGGER.info(
+                        "go2rtc stream registered: name=%s sources=%d (H.265%s)",
+                        name,
+                        len(sources),
+                        " + H.264 transcoded" if transcode_to_h264 else "",
                     )
                 else:
                     _LOGGER.warning(
-                        "go2rtc PUT /api/streams returned %s for %s", resp.status, name
+                        "go2rtc PUT /api/streams returned %s for %s",
+                        resp.status,
+                        name,
                     )
                 return ok
         except (TimeoutError, aiohttp.ClientError, OSError) as err:
