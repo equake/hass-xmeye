@@ -100,5 +100,11 @@
         }
       }
     }
+  },
+  "issues": {
+    "h265_no_go2rtc": {
+      "title": "H.265 stream on channel {channel} — live view limited",
+      "description": "Channel {channel} of {host} only streams H.265/HEVC. The live view in Home Assistant will only work in HEVC-capable browsers (Safari/macOS, Edge on Windows with HEVC extensions, mobile apps). On Linux Chrome/Chromium/Firefox you will see a still-image snapshot instead of live video.\n\nTo enable live view in any browser, install **WebRTC Camera** (AlexxIT) via HACS, or enable the bundled go2rtc via `default_config` in `configuration.yaml`. The integration will then auto-register the stream and go2rtc will transcode H.265 to H.264 in real time. Restart Home Assistant after the change."
+    }
   }
 }

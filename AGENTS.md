@@ -119,9 +119,19 @@ ruff check custom_components/
 ## Manual Testing
 
 ```bash
-python scripts/test_client.py <host> [port] [username] [password]
+python helpers/test_client.py <host> [port] [username] [password]
 ```
 Prints General config + SystemInfo/StorageInfo (cmd 1020) and then streams alarm events.
+
+## Helpers
+
+`helpers/` holds repository-tracked utilities (NOT in `.gitignore`):
+
+- `helpers/test_client.py` — manual smoke test against a live device
+- `helpers/i18n.py` — translation helper. Run `python helpers/i18n.py --check` to
+  verify every locale file is key-identical to `en.json` / `strings.json`. Use
+  `python helpers/i18n.py --set PATH en=… pt=… de=…` to add or update a key
+  across all locales while preserving each file's existing formatting.
 
 ## Internationalisation
 

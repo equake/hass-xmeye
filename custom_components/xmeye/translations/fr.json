@@ -1,103 +1,147 @@
 {
   "config": {
-    "step": {
-      "user": {
-        "title": "Appareil XMEye / Sofia",
-        "description": "Connectez-vous à un DVR, NVR ou caméra IP XMEye/Sofia. Pour détecter automatiquement les appareils sur votre réseau, utilisez l'option de recherche.",
-        "data": {
-          "host": "Hôte / adresse IP",
-          "port": "Port",
-          "username": "Nom d'utilisateur",
-          "password": "Mot de passe"
-        }
-      },
-      "discovery": {
-        "title": "Découverte sur le réseau local",
-        "description": "{found} appareil(s) XMEye/Sofia trouvé(s) sur votre réseau. Sélectionnez-en un pour le configurer.",
-        "data": {
-          "host": "Appareil"
-        }
-      },
-      "reconfigure": {
-        "title": "Reconfigurer l'appareil XMEye / Sofia",
-        "description": "Mettez à jour les paramètres de connexion de cet appareil.",
-        "data": {
-          "host": "Hôte / adresse IP",
-          "port": "Port",
-          "username": "Nom d'utilisateur",
-          "password": "Nouveau mot de passe (laisser vide pour conserver l'actuel)"
-        }
-      },
-      "reauth_confirm": {
-        "title": "Réauthentifier XMEye / Sofia",
-        "description": "Vos identifiants pour {host} ne sont plus valides. Saisissez de nouveaux identifiants.",
-        "data": {
-          "username": "Nom d'utilisateur",
-          "password": "Mot de passe"
-        }
-      }
-    },
-    "error": {
-      "cannot_connect": "Connexion impossible — vérifiez l'hôte et le port",
-      "invalid_auth": "Identifiants invalides — vérifiez le nom d'utilisateur et le mot de passe",
-      "discovery_no_devices": "Aucun appareil trouvé sur le réseau. Saisissez les informations de connexion manuellement.",
-      "unknown": "Erreur inattendue — consultez les journaux de Home Assistant"
-    },
     "abort": {
       "already_configured": "Cet appareil est déjà configuré",
       "reauth_successful": "La réauthentification a réussi",
       "unique_id_mismatch": "L'hôte/le port ne correspond pas à l'appareil configuré"
-    }
-  },
-  "options": {
+    },
+    "error": {
+      "cannot_connect": "Connexion impossible — vérifiez l'hôte et le port",
+      "discovery_no_devices": "Aucun appareil trouvé sur le réseau. Saisissez les informations de connexion manuellement.",
+      "invalid_auth": "Identifiants invalides — vérifiez le nom d'utilisateur et le mot de passe",
+      "unknown": "Erreur inattendue — consultez les journaux de Home Assistant"
+    },
     "step": {
-      "init": {
-        "title": "Options XMEye / Sofia",
-        "description": "Ajustez le comportement de cet appareil.",
+      "discovery": {
         "data": {
-          "motion_clear_delay": "Délai avant fin de la détection de mouvement (0 = immédiat)",
-          "storage_refresh_interval": "Intervalle de rafraîchissement du stockage (HDD)"
-        }
+          "host": "Appareil"
+        },
+        "description": "{found} appareil(s) XMEye/Sofia trouvé(s) sur votre réseau. Sélectionnez-en un pour le configurer.",
+        "title": "Découverte sur le réseau local"
+      },
+      "reauth_confirm": {
+        "data": {
+          "password": "Mot de passe",
+          "username": "Nom d'utilisateur"
+        },
+        "description": "Vos identifiants pour {host} ne sont plus valides. Saisissez de nouveaux identifiants.",
+        "title": "Réauthentifier XMEye / Sofia"
+      },
+      "reconfigure": {
+        "data": {
+          "host": "Hôte / adresse IP",
+          "password": "Nouveau mot de passe (laisser vide pour conserver l'actuel)",
+          "port": "Port",
+          "username": "Nom d'utilisateur"
+        },
+        "description": "Mettez à jour les paramètres de connexion de cet appareil.",
+        "title": "Reconfigurer l'appareil XMEye / Sofia"
+      },
+      "user": {
+        "data": {
+          "host": "Hôte / adresse IP",
+          "password": "Mot de passe",
+          "port": "Port",
+          "username": "Nom d'utilisateur"
+        },
+        "description": "Connectez-vous à un DVR, NVR ou caméra IP XMEye/Sofia. Pour détecter automatiquement les appareils sur votre réseau, utilisez l'option de recherche.",
+        "title": "Appareil XMEye / Sofia"
       }
     }
   },
   "entity": {
     "binary_sensor": {
-      "motion": { "name": "Mouvement CH{channel}" },
-      "video_loss": { "name": "Perte vidéo CH{channel}" },
-      "video_blind": { "name": "Vidéo masquée CH{channel}" },
-      "alarm_input": { "name": "Entrée alarme CH{channel}" },
-      "io_alarm": { "name": "Alarme E/S CH{channel}" },
-      "cross_line": { "name": "Franchissement de ligne CH{channel}" },
-      "intrusion": { "name": "Intrusion CH{channel}" }
-    },
-    "camera": {
-      "camera": { "name": "Caméra" }
-    },
-    "switch": {
-      "motion_detection": { "name": "Détection de mouvement CH{channel}" },
-      "human_detection": { "name": "Détection humaine CH{channel}" },
-      "face_detection": { "name": "Détection de visage CH{channel}" },
-      "recording": { "name": "Enregistrement CH{channel}" },
-      "privacy": { "name": "Confidentialité CH{channel}" }
+      "alarm_input": {
+        "name": "Entrée alarme CH{channel}"
+      },
+      "cross_line": {
+        "name": "Franchissement de ligne CH{channel}"
+      },
+      "intrusion": {
+        "name": "Intrusion CH{channel}"
+      },
+      "io_alarm": {
+        "name": "Alarme E/S CH{channel}"
+      },
+      "motion": {
+        "name": "Mouvement CH{channel}"
+      },
+      "video_blind": {
+        "name": "Vidéo masquée CH{channel}"
+      },
+      "video_loss": {
+        "name": "Perte vidéo CH{channel}"
+      }
     },
     "button": {
-      "reboot": { "name": "Redémarrer" }
+      "reboot": {
+        "name": "Redémarrer"
+      }
+    },
+    "camera": {
+      "camera": {
+        "name": "Caméra"
+      }
     },
     "sensor": {
-      "firmware": { "name": "Version du firmware" },
-      "hdd_total": { "name": "HDD Total" },
-      "hdd_used": { "name": "HDD Utilisé" },
-      "hdd_free": { "name": "HDD Libre" },
-      "hdd_used_percent": { "name": "HDD Utilisé %" },
+      "firmware": {
+        "name": "Version du firmware"
+      },
+      "hdd_free": {
+        "name": "HDD Libre"
+      },
       "hdd_status": {
         "name": "État du HDD",
         "state": {
-          "ok": "OK",
+          "error": "Erreur",
           "full": "Plein (recouvrement)",
           "no_disk": "Pas de disque",
-          "error": "Erreur"
+          "ok": "OK"
         }
+      },
+      "hdd_total": {
+        "name": "HDD Total"
+      },
+      "hdd_used": {
+        "name": "HDD Utilisé"
+      },
+      "hdd_used_percent": {
+        "name": "HDD Utilisé %"
+      }
+    },
+    "switch": {
+      "face_detection": {
+        "name": "Détection de visage CH{channel}"
+      },
+      "human_detection": {
+        "name": "Détection humaine CH{channel}"
+      },
+      "motion_detection": {
+        "name": "Détection de mouvement CH{channel}"
+      },
+      "privacy": {
+        "name": "Confidentialité CH{channel}"
+      },
+      "recording": {
+        "name": "Enregistrement CH{channel}"
+      }
+    }
+  },
+  "issues": {
+    "h265_no_go2rtc": {
+      "description": "Le canal {channel} de {host} ne diffuse qu'en H.265/HEVC. La vue en direct dans Home Assistant ne fonctionnera que dans les navigateurs compatibles HEVC (Safari/macOS, Edge sous Windows avec extensions HEVC, applications mobiles). Sur Linux Chrome/Chromium/Firefox, vous verrez une image fixe au lieu de la vidéo en direct.\n\nPour activer la vue en direct dans tous les navigateurs, installez **WebRTC Camera** (AlexxIT) via HACS, ou activez le go2rtc intégré via `default_config` dans le `configuration.yaml`. L'intégration enregistrera alors le flux automatiquement et go2rtc transcodera H.265 en H.264 en temps réel. Redémarrez Home Assistant après la modification.",
+      "title": "Flux H.265 sur le canal {channel} — vue en direct limitée"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "motion_clear_delay": "Délai avant fin de la détection de mouvement (0 = immédiat)",
+          "storage_refresh_interval": "Intervalle de rafraîchissement du stockage (HDD)"
+        },
+        "description": "Ajustez le comportement de cet appareil.",
+        "title": "Options XMEye / Sofia"
       }
     }
   }

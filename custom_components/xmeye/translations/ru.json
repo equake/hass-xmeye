@@ -1,103 +1,147 @@
 {
   "config": {
-    "step": {
-      "user": {
-        "title": "Устройство XMEye / Sofia",
-        "description": "Подключение к DVR, NVR или IP-камере XMEye/Sofia. Для автоматического поиска устройств в сети используйте опцию сканирования.",
-        "data": {
-          "host": "Хост / IP-адрес",
-          "port": "Порт",
-          "username": "Имя пользователя",
-          "password": "Пароль"
-        }
-      },
-      "discovery": {
-        "title": "Обнаружение в локальной сети",
-        "description": "Найдено {found} устройств XMEye/Sofia в вашей сети. Выберите устройство для настройки.",
-        "data": {
-          "host": "Устройство"
-        }
-      },
-      "reconfigure": {
-        "title": "Перенастройка устройства XMEye / Sofia",
-        "description": "Обновите параметры подключения для этого устройства.",
-        "data": {
-          "host": "Хост / IP-адрес",
-          "port": "Порт",
-          "username": "Имя пользователя",
-          "password": "Новый пароль (оставьте пустым, чтобы сохранить текущий)"
-        }
-      },
-      "reauth_confirm": {
-        "title": "Повторная аутентификация XMEye / Sofia",
-        "description": "Ваши учетные данные для {host} больше не действительны. Введите новые учетные данные.",
-        "data": {
-          "username": "Имя пользователя",
-          "password": "Пароль"
-        }
-      }
-    },
-    "error": {
-      "cannot_connect": "Не удалось подключиться — проверьте хост и порт",
-      "invalid_auth": "Неверные учетные данные — проверьте имя пользователя и пароль",
-      "discovery_no_devices": "Устройства в сети не найдены. Введите данные подключения вручную.",
-      "unknown": "Непредвиденная ошибка — проверьте журналы Home Assistant"
-    },
     "abort": {
       "already_configured": "Это устройство уже настроено",
       "reauth_successful": "Повторная аутентификация выполнена успешно",
       "unique_id_mismatch": "Хост/порт не соответствуют настроенному устройству"
-    }
-  },
-  "options": {
+    },
+    "error": {
+      "cannot_connect": "Не удалось подключиться — проверьте хост и порт",
+      "discovery_no_devices": "Устройства в сети не найдены. Введите данные подключения вручную.",
+      "invalid_auth": "Неверные учетные данные — проверьте имя пользователя и пароль",
+      "unknown": "Непредвиденная ошибка — проверьте журналы Home Assistant"
+    },
     "step": {
-      "init": {
-        "title": "Параметры XMEye / Sofia",
-        "description": "Настройка поведения для этого устройства.",
+      "discovery": {
         "data": {
-          "motion_clear_delay": "Задержка сброса детекции движения (0 = мгновенно)",
-          "storage_refresh_interval": "Интервал обновления информации о хранилище (HDD)"
-        }
+          "host": "Устройство"
+        },
+        "description": "Найдено {found} устройств XMEye/Sofia в вашей сети. Выберите устройство для настройки.",
+        "title": "Обнаружение в локальной сети"
+      },
+      "reauth_confirm": {
+        "data": {
+          "password": "Пароль",
+          "username": "Имя пользователя"
+        },
+        "description": "Ваши учетные данные для {host} больше не действительны. Введите новые учетные данные.",
+        "title": "Повторная аутентификация XMEye / Sofia"
+      },
+      "reconfigure": {
+        "data": {
+          "host": "Хост / IP-адрес",
+          "password": "Новый пароль (оставьте пустым, чтобы сохранить текущий)",
+          "port": "Порт",
+          "username": "Имя пользователя"
+        },
+        "description": "Обновите параметры подключения для этого устройства.",
+        "title": "Перенастройка устройства XMEye / Sofia"
+      },
+      "user": {
+        "data": {
+          "host": "Хост / IP-адрес",
+          "password": "Пароль",
+          "port": "Порт",
+          "username": "Имя пользователя"
+        },
+        "description": "Подключение к DVR, NVR или IP-камере XMEye/Sofia. Для автоматического поиска устройств в сети используйте опцию сканирования.",
+        "title": "Устройство XMEye / Sofia"
       }
     }
   },
   "entity": {
     "binary_sensor": {
-      "motion": { "name": "Движение К{channel}" },
-      "video_loss": { "name": "Потеря видео К{channel}" },
-      "video_blind": { "name": "Закрытие объектива К{channel}" },
-      "alarm_input": { "name": "Тревожный вход К{channel}" },
-      "io_alarm": { "name": "I/O Тревога К{channel}" },
-      "cross_line": { "name": "Пересечение линии К{channel}" },
-      "intrusion": { "name": "Вторжение К{channel}" }
-    },
-    "camera": {
-      "camera": { "name": "Камера" }
-    },
-    "switch": {
-      "motion_detection": { "name": "Детекция движения К{channel}" },
-      "human_detection": { "name": "Детекция человека К{channel}" },
-      "face_detection": { "name": "Детекция лица К{channel}" },
-      "recording": { "name": "Запись К{channel}" },
-      "privacy": { "name": "Конфиденциальность К{channel}" }
+      "alarm_input": {
+        "name": "Тревожный вход К{channel}"
+      },
+      "cross_line": {
+        "name": "Пересечение линии К{channel}"
+      },
+      "intrusion": {
+        "name": "Вторжение К{channel}"
+      },
+      "io_alarm": {
+        "name": "I/O Тревога К{channel}"
+      },
+      "motion": {
+        "name": "Движение К{channel}"
+      },
+      "video_blind": {
+        "name": "Закрытие объектива К{channel}"
+      },
+      "video_loss": {
+        "name": "Потеря видео К{channel}"
+      }
     },
     "button": {
-      "reboot": { "name": "Перезагрузка" }
+      "reboot": {
+        "name": "Перезагрузка"
+      }
+    },
+    "camera": {
+      "camera": {
+        "name": "Камера"
+      }
     },
     "sensor": {
-      "firmware": { "name": "Версия прошивки" },
-      "hdd_total": { "name": "HDD Общий объем" },
-      "hdd_used": { "name": "HDD Занято" },
-      "hdd_free": { "name": "HDD Свободно" },
-      "hdd_used_percent": { "name": "HDD Занято %" },
+      "firmware": {
+        "name": "Версия прошивки"
+      },
+      "hdd_free": {
+        "name": "HDD Свободно"
+      },
       "hdd_status": {
         "name": "Статус HDD",
         "state": {
-          "ok": "OK",
+          "error": "Ошибка",
           "full": "Заполнен (перезапись)",
           "no_disk": "Нет диска",
-          "error": "Ошибка"
+          "ok": "OK"
         }
+      },
+      "hdd_total": {
+        "name": "HDD Общий объем"
+      },
+      "hdd_used": {
+        "name": "HDD Занято"
+      },
+      "hdd_used_percent": {
+        "name": "HDD Занято %"
+      }
+    },
+    "switch": {
+      "face_detection": {
+        "name": "Детекция лица К{channel}"
+      },
+      "human_detection": {
+        "name": "Детекция человека К{channel}"
+      },
+      "motion_detection": {
+        "name": "Детекция движения К{channel}"
+      },
+      "privacy": {
+        "name": "Конфиденциальность К{channel}"
+      },
+      "recording": {
+        "name": "Запись К{channel}"
+      }
+    }
+  },
+  "issues": {
+    "h265_no_go2rtc": {
+      "description": "Канал {channel} устройства {host} передаёт видео только в H.265/HEVC. Просмотр в реальном времени в Home Assistant будет работать только в браузерах с поддержкой HEVC (Safari/macOS, Edge в Windows с расширениями HEVC, мобильные приложения). В Linux Chrome/Chromium/Firefox вместо живого видео вы увидите статичный кадр.\n\nЧтобы включить просмотр в реальном времени в любом браузере, установите **WebRTC Camera** (AlexxIT) через HACS или включите встроенный go2rtc через `default_config` в `configuration.yaml`. После этого интеграция автоматически зарегистрирует поток, а go2rtc будет транскодировать H.265 в H.264 в реальном времени. Перезапустите Home Assistant после изменения.",
+      "title": "Поток H.265 на канале {channel} — просмотр в реальном времени ограничен"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "motion_clear_delay": "Задержка сброса детекции движения (0 = мгновенно)",
+          "storage_refresh_interval": "Интервал обновления информации о хранилище (HDD)"
+        },
+        "description": "Настройка поведения для этого устройства.",
+        "title": "Параметры XMEye / Sofia"
       }
     }
   }

@@ -1,103 +1,147 @@
 {
   "config": {
-    "step": {
-      "user": {
-        "title": "XMEye / Sofia Device",
-        "description": "Connect to an XMEye/Sofia DVR, NVR or IP camera. To auto-discover devices on your network, use the scan option.",
-        "data": {
-          "host": "Host / IP address",
-          "port": "Port",
-          "username": "Username",
-          "password": "Password"
-        }
-      },
-      "discovery": {
-        "title": "LAN Discovery",
-        "description": "Found {found} XMEye/Sofia device(s) on your network. Select one to configure.",
-        "data": {
-          "host": "Device"
-        }
-      },
-      "reconfigure": {
-        "title": "Reconfigure XMEye / Sofia Device",
-        "description": "Update the connection settings for this device.",
-        "data": {
-          "host": "Host / IP address",
-          "port": "Port",
-          "username": "Username",
-          "password": "New password (leave blank to keep current)"
-        }
-      },
-      "reauth_confirm": {
-        "title": "Reauthenticate XMEye / Sofia",
-        "description": "Your credentials for {host} are no longer valid. Enter new credentials.",
-        "data": {
-          "username": "Username",
-          "password": "Password"
-        }
-      }
-    },
-    "error": {
-      "cannot_connect": "Cannot connect — check host and port",
-      "invalid_auth": "Invalid credentials — check username and password",
-      "discovery_no_devices": "No devices found on the network. Enter connection details manually.",
-      "unknown": "Unexpected error — check the Home Assistant logs"
-    },
     "abort": {
       "already_configured": "This device is already configured",
       "reauth_successful": "Reauthentication was successful",
       "unique_id_mismatch": "The host/port does not match the configured device"
-    }
-  },
-  "options": {
+    },
+    "error": {
+      "cannot_connect": "Cannot connect — check host and port",
+      "discovery_no_devices": "No devices found on the network. Enter connection details manually.",
+      "invalid_auth": "Invalid credentials — check username and password",
+      "unknown": "Unexpected error — check the Home Assistant logs"
+    },
     "step": {
-      "init": {
-        "title": "XMEye / Sofia Options",
-        "description": "Adjust behaviour for this device.",
+      "discovery": {
         "data": {
-          "motion_clear_delay": "Motion clear delay (0 = immediate)",
-          "storage_refresh_interval": "Storage (HDD) refresh interval"
-        }
+          "host": "Device"
+        },
+        "description": "Found {found} XMEye/Sofia device(s) on your network. Select one to configure.",
+        "title": "LAN Discovery"
+      },
+      "reauth_confirm": {
+        "data": {
+          "password": "Password",
+          "username": "Username"
+        },
+        "description": "Your credentials for {host} are no longer valid. Enter new credentials.",
+        "title": "Reauthenticate XMEye / Sofia"
+      },
+      "reconfigure": {
+        "data": {
+          "host": "Host / IP address",
+          "password": "New password (leave blank to keep current)",
+          "port": "Port",
+          "username": "Username"
+        },
+        "description": "Update the connection settings for this device.",
+        "title": "Reconfigure XMEye / Sofia Device"
+      },
+      "user": {
+        "data": {
+          "host": "Host / IP address",
+          "password": "Password",
+          "port": "Port",
+          "username": "Username"
+        },
+        "description": "Connect to an XMEye/Sofia DVR, NVR or IP camera. To auto-discover devices on your network, use the scan option.",
+        "title": "XMEye / Sofia Device"
       }
     }
   },
   "entity": {
     "binary_sensor": {
-      "motion": { "name": "CH{channel} Motion" },
-      "video_loss": { "name": "CH{channel} Video Loss" },
-      "video_blind": { "name": "CH{channel} Video Blind" },
-      "alarm_input": { "name": "CH{channel} Alarm Input" },
-      "io_alarm": { "name": "CH{channel} I/O Alarm" },
-      "cross_line": { "name": "CH{channel} Cross Line" },
-      "intrusion": { "name": "CH{channel} Intrusion" }
-    },
-    "camera": {
-      "camera": { "name": "Camera" }
-    },
-    "switch": {
-      "motion_detection": { "name": "CH{channel} Motion Detection" },
-      "human_detection": { "name": "CH{channel} Human Detection" },
-      "face_detection": { "name": "CH{channel} Face Detection" },
-      "recording": { "name": "CH{channel} Recording" },
-      "privacy": { "name": "CH{channel} Privacy" }
+      "alarm_input": {
+        "name": "CH{channel} Alarm Input"
+      },
+      "cross_line": {
+        "name": "CH{channel} Cross Line"
+      },
+      "intrusion": {
+        "name": "CH{channel} Intrusion"
+      },
+      "io_alarm": {
+        "name": "CH{channel} I/O Alarm"
+      },
+      "motion": {
+        "name": "CH{channel} Motion"
+      },
+      "video_blind": {
+        "name": "CH{channel} Video Blind"
+      },
+      "video_loss": {
+        "name": "CH{channel} Video Loss"
+      }
     },
     "button": {
-      "reboot": { "name": "Reboot" }
+      "reboot": {
+        "name": "Reboot"
+      }
+    },
+    "camera": {
+      "camera": {
+        "name": "Camera"
+      }
     },
     "sensor": {
-      "firmware": { "name": "Firmware Version" },
-      "hdd_total": { "name": "HDD Total" },
-      "hdd_used": { "name": "HDD Used" },
-      "hdd_free": { "name": "HDD Free" },
-      "hdd_used_percent": { "name": "HDD Used %" },
+      "firmware": {
+        "name": "Firmware Version"
+      },
+      "hdd_free": {
+        "name": "HDD Free"
+      },
       "hdd_status": {
         "name": "HDD Status",
         "state": {
-          "ok": "OK",
+          "error": "Error",
           "full": "Full (recycling)",
           "no_disk": "No disk",
-          "error": "Error"
+          "ok": "OK"
         }
+      },
+      "hdd_total": {
+        "name": "HDD Total"
+      },
+      "hdd_used": {
+        "name": "HDD Used"
+      },
+      "hdd_used_percent": {
+        "name": "HDD Used %"
+      }
+    },
+    "switch": {
+      "face_detection": {
+        "name": "CH{channel} Face Detection"
+      },
+      "human_detection": {
+        "name": "CH{channel} Human Detection"
+      },
+      "motion_detection": {
+        "name": "CH{channel} Motion Detection"
+      },
+      "privacy": {
+        "name": "CH{channel} Privacy"
+      },
+      "recording": {
+        "name": "CH{channel} Recording"
+      }
+    }
+  },
+  "issues": {
+    "h265_no_go2rtc": {
+      "description": "Channel {channel} of {host} only streams H.265/HEVC. The live view in Home Assistant will only work in HEVC-capable browsers (Safari/macOS, Edge on Windows with HEVC extensions, mobile apps). On Linux Chrome/Chromium/Firefox you will see a still-image snapshot instead of live video.\n\nTo enable live view in any browser, install **WebRTC Camera** (AlexxIT) via HACS, or enable the bundled go2rtc via `default_config` in `configuration.yaml`. The integration will then auto-register the stream and go2rtc will transcode H.265 to H.264 in real time. Restart Home Assistant after the change.",
+      "title": "H.265 stream on channel {channel} — live view limited"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "motion_clear_delay": "Motion clear delay (0 = immediate)",
+          "storage_refresh_interval": "Storage (HDD) refresh interval"
+        },
+        "description": "Adjust behaviour for this device.",
+        "title": "XMEye / Sofia Options"
       }
     }
   }

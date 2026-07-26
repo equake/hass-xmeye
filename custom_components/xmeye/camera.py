@@ -16,14 +16,40 @@ from homeassistant.helpers import entity_platform
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.issue_registry import (
+    IssueSeverity,
+    async_create_issue,
+    async_delete_issue,
+)
 
 from . import XMEyeConfigEntry
 from .client import sofia_hash
-from .const import SERVICE_PTZ, SIGNAL_NEW_CHANNEL
+from .const import (
+    CODEC_H264,
+    CODEC_H265,
+    CODEC_UNKNOWN,
+    DOMAIN,
+    GO2RTC_RTSP_PORT,
+    SERVICE_PTZ,
+    SIGNAL_NEW_CHANNEL,
+)
 from .coordinator import XMEyeCoordinator
 from .entity import XMEyeEntity
+from .go2rtc_client import Go2RTCClient
 
 _LOGGER = logging.getLogger(__name__)
+
+_REPAIR_H265_PREFIX = "h265_no_go2rtc"
+
+
+def _go2rtc_stream_name(entry_id: str, channel: int) -> str:
+    """Stable, unique name for a go2rtc stream entry (entity-scoped)."""
+    return f"xmeye_{entry_id}_ch{channel + 1}"
+
+
+def _h265_issue_id(entry_id: str, channel: int) -> str:
+    """Stable repair-issue id for one (entry, channel) pair."""
+    return f"{_REPAIR_H265_PREFIX}_{entry_id}_ch{channel + 1}"
 
 # Snapshot paths tried in order; first to return a valid JPEG frame is cached.
 # Placeholders:
@@ -114,7 +140,54 @@ def _rtsp_digest(username: str, password: str, method: str, uri: str, realm: str
 async def _rtsp_has_video(url: str, host: str, username: str, password: str) -> bool:
     """Return True if the RTSP URL returns a valid SDP with a video track.
 
-    Handles Digest auth challenge automatically.
+    Handles Digest auth challenge automatically. Used as a cheap fallback when
+    the caller doesn't need codec info; prefer `_rtsp_probe` when it matters.
+    """
+    sdp, _ = await _rtsp_probe(url, host, username, password)
+    return sdp is not None
+
+
+def _sdp_video_codec(sdp: str) -> str:
+    """Extract the video track codec from a RTSP SDP body.
+
+    Returns CODEC_H264, CODEC_H265, or CODEC_UNKNOWN. Uses the `a=rtpmap`
+    attribute of the first `m=video` line. XMEye / Sofia firmwares emit
+    "H264" for H.264 and "H265" for H.265 (sometimes prefixed with the
+    clock rate, e.g. "H264/90000"). Some HiSilicon firmwares spell it
+    "HEVC" — treat as H.265.
+    """
+    in_video = False
+    for line in sdp.splitlines():
+        if line.startswith("m=video"):
+            in_video = True
+            continue
+        if in_video:
+            if line.startswith("m="):
+                break  # next media section, video not yet resolved
+            if line.startswith("a=rtpmap:"):
+                # Format: "a=rtpmap:<payload-type> <encoding-name>/<clock>[/<params>]"
+                _, _, payload = line.partition(":")
+                parts = payload.strip().split("/", 1)
+                if not parts or not parts[0]:
+                    continue
+                # Drop the leading payload-type number; what remains is "H264/90000".
+                tokens = parts[0].split(None, 1)
+                name = (tokens[1] if len(tokens) > 1 else tokens[0]).upper()
+                if name.startswith("H264"):
+                    return CODEC_H264
+                if name.startswith("H265") or name.startswith("HEVC"):
+                    return CODEC_H265
+    return CODEC_UNKNOWN
+
+
+async def _rtsp_probe(
+    url: str, host: str, username: str, password: str
+) -> tuple[str | None, str]:
+    """Return (sdp_text_or_None, codec) for the given RTSP URL.
+
+    Handles Digest auth challenge automatically. The SDP is returned
+    only when the server actually served a media description (200 with
+    `m=video`); on auth failure or transport error, returns (None, unknown).
     """
     try:
         reader, writer = await asyncio.wait_for(
@@ -130,7 +203,7 @@ async def _rtsp_has_video(url: str, host: str, username: str, password: str) -> 
             ).decode(errors="replace")
 
             if "m=video" in resp:
-                return True
+                return resp, _sdp_video_codec(resp)
 
             if "401" in resp.split("\r\n")[0]:
                 m_realm = re.search(r'realm="([^"]+)"', resp)
@@ -149,7 +222,8 @@ async def _rtsp_has_video(url: str, host: str, username: str, password: str) -> 
                     resp2 = (
                         await asyncio.wait_for(reader.read(8192), timeout=_RTSP_PROBE_TIMEOUT)
                     ).decode(errors="replace")
-                    return "m=video" in resp2
+                    if "m=video" in resp2:
+                        return resp2, _sdp_video_codec(resp2)
         finally:
             writer.close()
             try:
@@ -158,7 +232,7 @@ async def _rtsp_has_video(url: str, host: str, username: str, password: str) -> 
                 pass
     except Exception:  # noqa: BLE001
         pass
-    return False
+    return None, CODEC_UNKNOWN
 
 
 # ---------------------------------------------------------------------------
@@ -221,6 +295,14 @@ class XMEyeCamera(XMEyeEntity, Camera):
         # Cached after first successful probe; None means "not yet discovered".
         self._snapshot_path: str | None = None
         self._stream_url: str | None = None
+        # Codec of the chosen RTSP stream ("H264", "H265", "unknown").
+        self._codec: str = CODEC_UNKNOWN
+        # 0 = main, 1 = sub. Tracked for diagnostics only.
+        self._stream_idx: int = 0
+        # If we successfully registered a transcoded go2rtc stream, the
+        # registered stream name; None otherwise. Used to clean up on
+        # entity removal and to switch stream_source() to the go2rtc URL.
+        self._go2rtc_stream_name: str | None = None
 
         # Locks prevent concurrent probes if HA calls us before the background task finishes.
         self._snapshot_lock = asyncio.Lock()
@@ -249,14 +331,96 @@ class XMEyeCamera(XMEyeEntity, Camera):
             name=f"xmeye_probe_{self._attr_unique_id}",
         )
 
+    async def async_will_remove_from_hass(self) -> None:
+        await super().async_will_remove_from_hass()
+        # Best-effort cleanup of any go2rtc stream we registered. Failures
+        # are logged at debug only — the entity removal must not block.
+        if self._go2rtc_stream_name is not None:
+            client: Go2RTCClient | None = self._coordinator.go2rtc_client
+            if client is not None:
+                try:
+                    await client.unregister_stream(self._go2rtc_stream_name)
+                except Exception:  # noqa: BLE001
+                    _LOGGER.debug(
+                        "go2rtc unregister failed for %s", self._go2rtc_stream_name
+                    )
+            self._go2rtc_stream_name = None
+        # Resolve any repair issue we created for this channel. Other
+        # channels from the same device may still be H.265 — they will
+        # re-create the issue on their own probe.
+        if self._codec == CODEC_H265:
+            try:
+                async_delete_issue(
+                    self.hass,
+                    DOMAIN,
+                    _h265_issue_id(self._coordinator.entry.entry_id, self._channel),
+                )
+            except Exception:  # noqa: BLE001
+                pass
+
     async def _probe_urls(self) -> None:
-        """Probe snapshot and RTSP URLs concurrently at startup."""
+        """Probe snapshot and RTSP URLs concurrently at startup, then
+        arm go2rtc transcoding if the chosen stream is H.265-only."""
         session = async_get_clientsession(self.hass)
         auth = aiohttp.BasicAuth(self._username, sofia_hash(self._password))
         await asyncio.gather(
             self._find_snapshot_path(session, auth),
             self._find_stream_url(),
         )
+        await self._maybe_register_go2rtc()
+
+    async def _maybe_register_go2rtc(self) -> None:
+        """If the chosen stream is H.265, register it with go2rtc for transcoding.
+
+        Best-effort: any failure is logged and swallowed. On success,
+        stores the registered name in `self._go2rtc_stream_name` so the
+        entity removal hook can DELETE it from go2rtc. If go2rtc is
+        unreachable, creates a repair issue pointing the user at the
+        install / config path.
+        """
+        if self._stream_url is None or self._codec != CODEC_H265:
+            return
+        client: Go2RTCClient | None = self._coordinator.go2rtc_client
+        if client is None:
+            return
+        if not await client.is_available():
+            _LOGGER.debug(
+                "ch%d H.265 detected but go2rtc is not running — live view will "
+                "only work in HEVC-capable browsers (Safari/macOS, Edge/Windows "
+                "with HEVC extensions, mobile apps). Linux Chrome/Firefox will "
+                "fall back to still-image snapshots.",
+                self._channel + 1,
+            )
+            async_create_issue(
+                self.hass,
+                DOMAIN,
+                _h265_issue_id(self._coordinator.entry.entry_id, self._channel),
+                breaks_in_ha_version=None,
+                is_fixable=False,
+                is_persistent=False,
+                severity=IssueSeverity.WARNING,
+                translation_key="h265_no_go2rtc",
+                translation_placeholders={
+                    "channel": str(self._channel + 1),
+                    "host": self._host,
+                },
+            )
+            return
+        name = _go2rtc_stream_name(self._coordinator.entry.entry_id, self._channel)
+        ok = await client.register_stream(name, self._stream_url, transcode_to_h264=True)
+        if ok:
+            self._go2rtc_stream_name = name
+            _LOGGER.debug(
+                "ch%d H.265 stream registered with go2rtc as %s — browser WebRTC "
+                "will play transcoded H.264",
+                self._channel + 1, name,
+            )
+        else:
+            _LOGGER.warning(
+                "ch%d H.265 stream — go2rtc register failed; live view will "
+                "only work in HEVC-capable browsers",
+                self._channel + 1,
+            )
 
     # ------------------------------------------------------------------
     # Snapshot discovery
@@ -307,37 +471,73 @@ class XMEyeCamera(XMEyeEntity, Camera):
     # RTSP stream discovery
     # ------------------------------------------------------------------
 
-    def _stream_url_candidates(self) -> list[str]:
+    def _stream_url_candidates(self) -> list[tuple[str, int]]:
+        """Yield (url, stream_index) candidates in preference order.
+
+        For each URL shape we try the main stream (0, high-res) AND the
+        sub stream (1, low-res). Preference is applied later in
+        `_find_stream_url` based on parsed SDP codec: H.264 wins over
+        H.265, and the sub stream is preferred for transcoding cost when
+        only H.265 is available.
+        """
         h = sofia_hash(self._password)
         ch = self._channel
         host = self._host
         user = self._username
         pwd = self._password
         return [
-            # XMEye / Sofia standard format
-            f"rtsp://{host}:{_RTSP_PORT}/user={user}&password={h}&channel={ch + 1}&stream=0.sdp",
+            # XMEye / Sofia standard format — main then sub
+            (f"rtsp://{host}:{_RTSP_PORT}/user={user}&password={h}"
+             f"&channel={ch + 1}&stream=0.sdp", 0),
+            (f"rtsp://{host}:{_RTSP_PORT}/user={user}&password={h}"
+             f"&channel={ch + 1}&stream=1.sdp", 1),
             # Plain credentials in URL (some IPC firmwares, empty password)
-            f"rtsp://{user}:{pwd}@{host}:{_RTSP_PORT}/",
+            (f"rtsp://{user}:{pwd}@{host}:{_RTSP_PORT}/", 0),
             # Common IPC path variants
-            f"rtsp://{host}:{_RTSP_PORT}/live/ch{ch}",
-            f"rtsp://{host}:{_RTSP_PORT}/h264/ch{ch + 1}/main/av_stream",
+            (f"rtsp://{host}:{_RTSP_PORT}/live/ch{ch}", 0),
+            (f"rtsp://{host}:{_RTSP_PORT}/live/ch{ch}_1", 1),
+            (f"rtsp://{host}:{_RTSP_PORT}/h264/ch{ch + 1}/main/av_stream", 0),
+            (f"rtsp://{host}:{_RTSP_PORT}/h264/ch{ch + 1}/sub/av_stream", 1),
         ]
 
     async def _find_stream_url(self) -> None:
-        """Try each RTSP URL candidate and cache the first that serves a video track."""
+        """Probe every candidate and cache the best by codec.
+
+        Best is defined as: first H.264 stream found (HLS-friendly, no
+        transcoding needed in any browser); if none, the first H.265
+        stream found (will need go2rtc transcoding for non-HEVC browsers);
+        if none, the first stream with an unknown codec.
+        """
         if self._stream_url is not None:
             return
         async with self._stream_lock:
             if self._stream_url is not None:
                 return
-            for url in self._stream_url_candidates():
-                if await _rtsp_has_video(url, self._host, self._username, self._password):
-                    self._stream_url = url
-                    _LOGGER.debug(
-                        "Stream URL cached for ch%d: %s",
-                        self._channel + 1, url,
-                    )
-                    return
+
+            best: tuple[str, str, int] | None = None  # (url, codec, stream_idx)
+            # Codec preference: H264=0, H265=1, unknown=2 (lower is better)
+            rank = {CODEC_H264: 0, CODEC_H265: 1, CODEC_UNKNOWN: 2}
+
+            for url, stream_idx in self._stream_url_candidates():
+                sdp, codec = await _rtsp_probe(
+                    url, self._host, self._username, self._password
+                )
+                if sdp is None:
+                    continue
+                candidate = (url, codec, stream_idx)
+                if best is None or rank[codec] < rank[best[1]]:
+                    best = candidate
+                # Short-circuit on best possible codec
+                if codec == CODEC_H264:
+                    break
+
+            if best is not None:
+                self._stream_url, self._codec, self._stream_idx = best
+                _LOGGER.debug(
+                    "Stream URL cached for ch%d: codec=%s stream=%d url=%s",
+                    self._channel + 1, self._codec, self._stream_idx, self._stream_url,
+                )
+                return
             _LOGGER.debug(
                 "No working RTSP stream for ch%d on %s",
                 self._channel + 1, self._host,
@@ -377,16 +577,27 @@ class XMEyeCamera(XMEyeEntity, Camera):
         return None
 
     async def stream_source(self) -> str | None:
-        """Return the RTSP stream URL.
+        """Return the URL HA should open for the live view.
 
-        Returns the probed (verified) URL once the background probe completes.
-        Until then, falls back to the standard XMEye URL format so HA can
-        attempt to connect immediately.
+        Resolution order:
+        1. If we registered a transcoded go2rtc stream for this channel
+           (H.265 input → H.264 output), return the go2rtc RTSP URL.
+           HA-Core's bundled go2rtc will hand it to the browser as
+           WebRTC H.264, which works on every browser.
+        2. Otherwise return the probed RTSP URL (H.264 or other codec
+           that the browser can decode natively via HLS).
+        3. If the background probe is still running, return the standard
+           XMEye URL as a best-effort so HA can attempt to connect
+           immediately.
         """
         if not self._coordinator.connected:
             return None
         if self._channel in self._coordinator.private_channels:
             return None
+        if self._go2rtc_stream_name is not None:
+            return (
+                f"rtsp://127.0.0.1:{GO2RTC_RTSP_PORT}/{self._go2rtc_stream_name}"
+            )
         if self._stream_url is not None:
             return self._stream_url
         # Background probe still running — return the default URL as a best-effort.

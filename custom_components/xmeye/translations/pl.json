@@ -1,103 +1,147 @@
 {
   "config": {
-    "step": {
-      "user": {
-        "title": "Urządzenie XMEye / Sofia",
-        "description": "Połącz z DVR, NVR lub kamerą IP XMEye/Sofia. Aby automatycznie wykryć urządzenia w sieci, użyj opcji skanowania.",
-        "data": {
-          "host": "Host / adres IP",
-          "port": "Port",
-          "username": "Nazwa użytkownika",
-          "password": "Hasło"
-        }
-      },
-      "discovery": {
-        "title": "Wykrywanie w sieci lokalnej",
-        "description": "Znaleziono {found} urządzeń XMEye/Sofia w sieci. Wybierz jedno do konfiguracji.",
-        "data": {
-          "host": "Urządzenie"
-        }
-      },
-      "reconfigure": {
-        "title": "Ponowna konfiguracja urządzenia XMEye / Sofia",
-        "description": "Zaktualizuj ustawienia połączenia tego urządzenia.",
-        "data": {
-          "host": "Host / adres IP",
-          "port": "Port",
-          "username": "Nazwa użytkownika",
-          "password": "Nowe hasło (pozostaw puste, aby zachować obecne)"
-        }
-      },
-      "reauth_confirm": {
-        "title": "Ponowne uwierzytelnienie XMEye / Sofia",
-        "description": "Dane logowania dla {host} są nieaktualne. Wprowadź nowe dane logowania.",
-        "data": {
-          "username": "Nazwa użytkownika",
-          "password": "Hasło"
-        }
-      }
-    },
-    "error": {
-      "cannot_connect": "Nie można nawiązać połączenia — sprawdź host i port",
-      "invalid_auth": "Nieprawidłowe dane logowania — sprawdź nazwę użytkownika i hasło",
-      "discovery_no_devices": "Nie znaleziono urządzeń w sieci. Wprowadź dane połączenia ręcznie.",
-      "unknown": "Nieoczekiwany błąd — sprawdź logi Home Assistant"
-    },
     "abort": {
       "already_configured": "To urządzenie jest już skonfigurowane",
       "reauth_successful": "Ponowne uwierzytelnienie zakończyło się pomyślnie",
       "unique_id_mismatch": "Host/port nie pasują do skonfigurowanego urządzenia"
-    }
-  },
-  "options": {
+    },
+    "error": {
+      "cannot_connect": "Nie można nawiązać połączenia — sprawdź host i port",
+      "discovery_no_devices": "Nie znaleziono urządzeń w sieci. Wprowadź dane połączenia ręcznie.",
+      "invalid_auth": "Nieprawidłowe dane logowania — sprawdź nazwę użytkownika i hasło",
+      "unknown": "Nieoczekiwany błąd — sprawdź logi Home Assistant"
+    },
     "step": {
-      "init": {
-        "title": "Opcje XMEye / Sofia",
-        "description": "Dostosuj zachowanie tego urządzenia.",
+      "discovery": {
         "data": {
-          "motion_clear_delay": "Opóźnienie czyszczenia wykrycia ruchu (0 = natychmiast)",
-          "storage_refresh_interval": "Interwał odświeżania pamięci masowej (HDD)"
-        }
+          "host": "Urządzenie"
+        },
+        "description": "Znaleziono {found} urządzeń XMEye/Sofia w sieci. Wybierz jedno do konfiguracji.",
+        "title": "Wykrywanie w sieci lokalnej"
+      },
+      "reauth_confirm": {
+        "data": {
+          "password": "Hasło",
+          "username": "Nazwa użytkownika"
+        },
+        "description": "Dane logowania dla {host} są nieaktualne. Wprowadź nowe dane logowania.",
+        "title": "Ponowne uwierzytelnienie XMEye / Sofia"
+      },
+      "reconfigure": {
+        "data": {
+          "host": "Host / adres IP",
+          "password": "Nowe hasło (pozostaw puste, aby zachować obecne)",
+          "port": "Port",
+          "username": "Nazwa użytkownika"
+        },
+        "description": "Zaktualizuj ustawienia połączenia tego urządzenia.",
+        "title": "Ponowna konfiguracja urządzenia XMEye / Sofia"
+      },
+      "user": {
+        "data": {
+          "host": "Host / adres IP",
+          "password": "Hasło",
+          "port": "Port",
+          "username": "Nazwa użytkownika"
+        },
+        "description": "Połącz z DVR, NVR lub kamerą IP XMEye/Sofia. Aby automatycznie wykryć urządzenia w sieci, użyj opcji skanowania.",
+        "title": "Urządzenie XMEye / Sofia"
       }
     }
   },
   "entity": {
     "binary_sensor": {
-      "motion": { "name": "Ruch CH{channel}" },
-      "video_loss": { "name": "Utrata obrazu CH{channel}" },
-      "video_blind": { "name": "Zaślepienie obrazu CH{channel}" },
-      "alarm_input": { "name": "Wejście alarmowe CH{channel}" },
-      "io_alarm": { "name": "Alarm I/O CH{channel}" },
-      "cross_line": { "name": "Przekroczenie linii CH{channel}" },
-      "intrusion": { "name": "Włamanie CH{channel}" }
-    },
-    "camera": {
-      "camera": { "name": "Kamera" }
-    },
-    "switch": {
-      "motion_detection": { "name": "Wykrywanie ruchu CH{channel}" },
-      "human_detection": { "name": "Wykrywanie osób CH{channel}" },
-      "face_detection": { "name": "Wykrywanie twarzy CH{channel}" },
-      "recording": { "name": "Nagrywanie CH{channel}" },
-      "privacy": { "name": "Prywatność CH{channel}" }
+      "alarm_input": {
+        "name": "Wejście alarmowe CH{channel}"
+      },
+      "cross_line": {
+        "name": "Przekroczenie linii CH{channel}"
+      },
+      "intrusion": {
+        "name": "Włamanie CH{channel}"
+      },
+      "io_alarm": {
+        "name": "Alarm I/O CH{channel}"
+      },
+      "motion": {
+        "name": "Ruch CH{channel}"
+      },
+      "video_blind": {
+        "name": "Zaślepienie obrazu CH{channel}"
+      },
+      "video_loss": {
+        "name": "Utrata obrazu CH{channel}"
+      }
     },
     "button": {
-      "reboot": { "name": "Uruchom ponownie" }
+      "reboot": {
+        "name": "Uruchom ponownie"
+      }
+    },
+    "camera": {
+      "camera": {
+        "name": "Kamera"
+      }
     },
     "sensor": {
-      "firmware": { "name": "Wersja firmware" },
-      "hdd_total": { "name": "HDD Łącznie" },
-      "hdd_used": { "name": "HDD Użyte" },
-      "hdd_free": { "name": "HDD Wolne" },
-      "hdd_used_percent": { "name": "HDD Użyte %" },
+      "firmware": {
+        "name": "Wersja firmware"
+      },
+      "hdd_free": {
+        "name": "HDD Wolne"
+      },
       "hdd_status": {
         "name": "Stan HDD",
         "state": {
-          "ok": "OK",
+          "error": "Błąd",
           "full": "Pełny (nadpisywanie)",
           "no_disk": "Brak dysku",
-          "error": "Błąd"
+          "ok": "OK"
         }
+      },
+      "hdd_total": {
+        "name": "HDD Łącznie"
+      },
+      "hdd_used": {
+        "name": "HDD Użyte"
+      },
+      "hdd_used_percent": {
+        "name": "HDD Użyte %"
+      }
+    },
+    "switch": {
+      "face_detection": {
+        "name": "Wykrywanie twarzy CH{channel}"
+      },
+      "human_detection": {
+        "name": "Wykrywanie osób CH{channel}"
+      },
+      "motion_detection": {
+        "name": "Wykrywanie ruchu CH{channel}"
+      },
+      "privacy": {
+        "name": "Prywatność CH{channel}"
+      },
+      "recording": {
+        "name": "Nagrywanie CH{channel}"
+      }
+    }
+  },
+  "issues": {
+    "h265_no_go2rtc": {
+      "description": "Kanał {channel} urządzenia {host} przesyła tylko H.265/HEVC. Podgląd na żywo w Home Assistant będzie działał tylko w przeglądarkach obsługujących HEVC (Safari/macOS, Edge w Windowsie z rozszerzeniami HEVC, aplikacje mobilne). W Linux Chrome/Chromium/Firefox zobaczą Państwo statyczny obraz zamiast wideo na żywo.\n\nAby włączyć podgląd na żywo w dowolnej przeglądarce, proszę zainstalować **WebRTC Camera** (AlexxIT) przez HACS, lub włączyć wbudowany go2rtc przez `default_config` w `configuration.yaml`. Integracja zarejestruje wtedy strumień automatycznie, a go2rtc będzie transkodować H.265 na H.264 w czasie rzeczywistym. Po zmianie proszę zrestartować Home Assistant.",
+      "title": "Strumień H.265 na kanale {channel} — podgląd na żywo ograniczony"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "motion_clear_delay": "Opóźnienie czyszczenia wykrycia ruchu (0 = natychmiast)",
+          "storage_refresh_interval": "Interwał odświeżania pamięci masowej (HDD)"
+        },
+        "description": "Dostosuj zachowanie tego urządzenia.",
+        "title": "Opcje XMEye / Sofia"
       }
     }
   }
