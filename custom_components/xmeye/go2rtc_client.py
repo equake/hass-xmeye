@@ -99,17 +99,31 @@ class Go2RTCClient:
         name: str,
         source_url: str,
     ) -> bool:
-        """Register a stream with go2rtc.
+        """Register a stream with go2rtc using multiple sources for auto codec matching.
 
-        The HA-Core WebRTC Provider will automatically add an FFmpeg source
-        for audio transcoding (PCMA → Opus). Video transcoding is handled
-        by the HA stream component when needed.
+        Registers two sources:
+        1. Original RTSP stream (H.265 for compatible clients like VLC, Companion App)
+        2. FFmpeg transcoded stream (H.264 for browsers like Chrome/Linux via WebRTC)
+
+        The second source uses auto-reference (ffmpeg:{stream_name}) which allows
+        go2rtc to transcode the stream on-demand. go2rtc will automatically select
+        the appropriate source based on client capabilities.
         """
         base = await self._ensure()
         if base is None:
             return False
 
-        params = {"src": source_url, "name": name}
+        # Build list of source URLs
+        # Multiple `src` query params = multiple sources for the same stream
+        sources = [
+            source_url,
+            # FFmpeg source uses auto-reference to the stream itself
+            # go2rtc will transcode H.265 → H.264 on-demand
+            f"ffmpeg:{name}#video=h264#audio=opus",
+        ]
+
+        # Use repeated `src` query parameter for multiple sources
+        params = [("src", s) for s in sources] + [("name", name)]
 
         try:
             async with self._session.put(
@@ -120,9 +134,9 @@ class Go2RTCClient:
                 ok = resp.status < 300
                 if ok:
                     _LOGGER.info(
-                        "go2rtc stream registered: name=%s source=%s",
+                        "go2rtc stream registered: name=%s sources=%d (H.265 + H.264 transcoded)",
                         name,
-                        source_url,
+                        len(sources),
                     )
                 else:
                     _LOGGER.warning(

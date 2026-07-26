@@ -369,11 +369,13 @@ class XMEyeCamera(XMEyeEntity, Camera):
         await self._maybe_register_go2rtc()
 
     async def _maybe_register_go2rtc(self) -> None:
-        """If the chosen stream is H.265, register it with go2rtc.
+        """If the chosen stream is H.265, register it with go2rtc for auto codec matching.
 
-        The HA-Core WebRTC Provider will automatically add an FFmpeg source
-        for audio transcoding (PCMA → Opus). Video transcoding is handled
-        by the HA stream component when needed.
+        Registers two sources:
+        1. Original RTSP stream (H.265 for compatible clients like VLC, Companion App)
+        2. FFmpeg transcoded stream (H.264 for browsers like Chrome/Linux via WebRTC)
+
+        go2rtc will automatically select the appropriate source based on client capabilities.
         """
         if self._stream_url is None or self._codec != CODEC_H265:
             return
@@ -406,7 +408,7 @@ class XMEyeCamera(XMEyeEntity, Camera):
         name = _go2rtc_stream_name(self._coordinator.entry.entry_id, self._channel)
 
         _LOGGER.info(
-            "ch%d H.265 detected — registering with go2rtc",
+            "ch%d H.265 detected — registering with go2rtc (H.265 native + H.264 transcoded)",
             self._channel + 1,
         )
 
@@ -414,7 +416,7 @@ class XMEyeCamera(XMEyeEntity, Camera):
         if ok:
             self._go2rtc_stream_name = name
             _LOGGER.info(
-                "ch%d stream registered with go2rtc as '%s'",
+                "ch%d stream registered with go2rtc as '%s' — auto codec matching enabled",
                 self._channel + 1,
                 name,
             )
