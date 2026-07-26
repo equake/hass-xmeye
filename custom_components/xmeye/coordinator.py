@@ -41,6 +41,7 @@ from .const import (
     RET_OK,
     SIGNAL_NEW_CHANNEL,
 )
+from .go2rtc_client import Go2RTCClient
 
 _LOGGER = logging.getLogger(__name__)
 _T = TypeVar("_T")
@@ -119,6 +120,10 @@ class XMEyeCoordinator:
         self._unsub_channel_check: Callable[[], None] | None = None
         # Pending debounce timers: (channel, event_type) → unsub callable
         self._clear_unsubs: dict[tuple[int, str], Callable[[], None]] = {}
+        # Shared HTTP client to the local go2rtc instance, if any. Camera
+        # entities call into it to register/unregister transcoded streams
+        # when a channel is H.265-only. Lazily created on first use.
+        self.go2rtc_client: Go2RTCClient | None = Go2RTCClient()
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -167,6 +172,9 @@ class XMEyeCoordinator:
             except asyncio.CancelledError:
                 pass
             self._task = None
+        if self.go2rtc_client is not None:
+            await self.go2rtc_client.close()
+            self.go2rtc_client = None
 
     # ------------------------------------------------------------------
     # Shared DeviceInfo (used by all entity platforms)

@@ -1,103 +1,147 @@
 {
   "config": {
-    "step": {
-      "user": {
-        "title": "XMEye / Sofia apparaat",
-        "description": "Maak verbinding met een XMEye/Sofia DVR, NVR of IP-camera. Gebruik de scanoptie om apparaten op uw netwerk automatisch te detecteren.",
-        "data": {
-          "host": "Host / IP-adres",
-          "port": "Poort",
-          "username": "Gebruikersnaam",
-          "password": "Wachtwoord"
-        }
-      },
-      "discovery": {
-        "title": "Netwerkdetectie",
-        "description": "{found} XMEye/Sofia-appara(a)t(en) gevonden op uw netwerk. Selecteer er één om te configureren.",
-        "data": {
-          "host": "Apparaat"
-        }
-      },
-      "reconfigure": {
-        "title": "XMEye / Sofia apparaat herconfigureren",
-        "description": "Werk de verbindingsinstellingen van dit apparaat bij.",
-        "data": {
-          "host": "Host / IP-adres",
-          "port": "Poort",
-          "username": "Gebruikersnaam",
-          "password": "Nieuw wachtwoord (laat leeg om huidige te behouden)"
-        }
-      },
-      "reauth_confirm": {
-        "title": "XMEye / Sofia opnieuw authenticeren",
-        "description": "Uw inloggegevens voor {host} zijn niet meer geldig. Voer nieuwe inloggegevens in.",
-        "data": {
-          "username": "Gebruikersnaam",
-          "password": "Wachtwoord"
-        }
-      }
-    },
-    "error": {
-      "cannot_connect": "Kan geen verbinding maken — controleer host en poort",
-      "invalid_auth": "Ongeldige inloggegevens — controleer gebruikersnaam en wachtwoord",
-      "discovery_no_devices": "Geen apparaten gevonden op het netwerk. Voer verbindingsgegevens handmatig in.",
-      "unknown": "Onverwachte fout — controleer de Home Assistant-logboeken"
-    },
     "abort": {
       "already_configured": "Dit apparaat is al geconfigureerd",
       "reauth_successful": "Herauthenticatie was succesvol",
       "unique_id_mismatch": "Host/poort komt niet overeen met het geconfigureerde apparaat"
-    }
-  },
-  "options": {
+    },
+    "error": {
+      "cannot_connect": "Kan geen verbinding maken — controleer host en poort",
+      "discovery_no_devices": "Geen apparaten gevonden op het netwerk. Voer verbindingsgegevens handmatig in.",
+      "invalid_auth": "Ongeldige inloggegevens — controleer gebruikersnaam en wachtwoord",
+      "unknown": "Onverwachte fout — controleer de Home Assistant-logboeken"
+    },
     "step": {
-      "init": {
-        "title": "XMEye / Sofia opties",
-        "description": "Pas het gedrag van dit apparaat aan.",
+      "discovery": {
         "data": {
-          "motion_clear_delay": "Vertraging bewegingsdetectie wissen (0 = onmiddellijk)",
-          "storage_refresh_interval": "Verversingsinterval opslag (HDD)"
-        }
+          "host": "Apparaat"
+        },
+        "description": "{found} XMEye/Sofia-appara(a)t(en) gevonden op uw netwerk. Selecteer er één om te configureren.",
+        "title": "Netwerkdetectie"
+      },
+      "reauth_confirm": {
+        "data": {
+          "password": "Wachtwoord",
+          "username": "Gebruikersnaam"
+        },
+        "description": "Uw inloggegevens voor {host} zijn niet meer geldig. Voer nieuwe inloggegevens in.",
+        "title": "XMEye / Sofia opnieuw authenticeren"
+      },
+      "reconfigure": {
+        "data": {
+          "host": "Host / IP-adres",
+          "password": "Nieuw wachtwoord (laat leeg om huidige te behouden)",
+          "port": "Poort",
+          "username": "Gebruikersnaam"
+        },
+        "description": "Werk de verbindingsinstellingen van dit apparaat bij.",
+        "title": "XMEye / Sofia apparaat herconfigureren"
+      },
+      "user": {
+        "data": {
+          "host": "Host / IP-adres",
+          "password": "Wachtwoord",
+          "port": "Poort",
+          "username": "Gebruikersnaam"
+        },
+        "description": "Maak verbinding met een XMEye/Sofia DVR, NVR of IP-camera. Gebruik de scanoptie om apparaten op uw netwerk automatisch te detecteren.",
+        "title": "XMEye / Sofia apparaat"
       }
     }
   },
   "entity": {
     "binary_sensor": {
-      "motion": { "name": "Beweging CH{channel}" },
-      "video_loss": { "name": "Videosignaalverlies CH{channel}" },
-      "video_blind": { "name": "Video afgedekt CH{channel}" },
-      "alarm_input": { "name": "Alarmingang CH{channel}" },
-      "io_alarm": { "name": "I/O-alarm CH{channel}" },
-      "cross_line": { "name": "Lijnoverschrijding CH{channel}" },
-      "intrusion": { "name": "Inbraak CH{channel}" }
-    },
-    "camera": {
-      "camera": { "name": "Camera" }
-    },
-    "switch": {
-      "motion_detection": { "name": "Bewegingsdetectie CH{channel}" },
-      "human_detection": { "name": "Persoonsdetectie CH{channel}" },
-      "face_detection": { "name": "Gezichtsdetectie CH{channel}" },
-      "recording": { "name": "Opname CH{channel}" },
-      "privacy": { "name": "Privacy CH{channel}" }
+      "alarm_input": {
+        "name": "Alarmingang CH{channel}"
+      },
+      "cross_line": {
+        "name": "Lijnoverschrijding CH{channel}"
+      },
+      "intrusion": {
+        "name": "Inbraak CH{channel}"
+      },
+      "io_alarm": {
+        "name": "I/O-alarm CH{channel}"
+      },
+      "motion": {
+        "name": "Beweging CH{channel}"
+      },
+      "video_blind": {
+        "name": "Video afgedekt CH{channel}"
+      },
+      "video_loss": {
+        "name": "Videosignaalverlies CH{channel}"
+      }
     },
     "button": {
-      "reboot": { "name": "Herstarten" }
+      "reboot": {
+        "name": "Herstarten"
+      }
+    },
+    "camera": {
+      "camera": {
+        "name": "Camera"
+      }
     },
     "sensor": {
-      "firmware": { "name": "Firmwareversie" },
-      "hdd_total": { "name": "HDD Totaal" },
-      "hdd_used": { "name": "HDD Gebruikt" },
-      "hdd_free": { "name": "HDD Vrij" },
-      "hdd_used_percent": { "name": "HDD Gebruikt %" },
+      "firmware": {
+        "name": "Firmwareversie"
+      },
+      "hdd_free": {
+        "name": "HDD Vrij"
+      },
       "hdd_status": {
         "name": "HDD-status",
         "state": {
-          "ok": "OK",
+          "error": "Fout",
           "full": "Vol (overschrijven)",
           "no_disk": "Geen schijf",
-          "error": "Fout"
+          "ok": "OK"
         }
+      },
+      "hdd_total": {
+        "name": "HDD Totaal"
+      },
+      "hdd_used": {
+        "name": "HDD Gebruikt"
+      },
+      "hdd_used_percent": {
+        "name": "HDD Gebruikt %"
+      }
+    },
+    "switch": {
+      "face_detection": {
+        "name": "Gezichtsdetectie CH{channel}"
+      },
+      "human_detection": {
+        "name": "Persoonsdetectie CH{channel}"
+      },
+      "motion_detection": {
+        "name": "Bewegingsdetectie CH{channel}"
+      },
+      "privacy": {
+        "name": "Privacy CH{channel}"
+      },
+      "recording": {
+        "name": "Opname CH{channel}"
+      }
+    }
+  },
+  "issues": {
+    "h265_no_go2rtc": {
+      "description": "Kanaal {channel} van {host} streamt alleen H.265/HEVC. De live-weergave in Home Assistant werkt alleen in browsers met HEVC-ondersteuning (Safari/macOS, Edge op Windows met HEVC-extensies, mobiele apps). Op Linux Chrome/Chromium/Firefox ziet u een stilstaand beeld in plaats van live video.\n\nOm de live-weergave in elke browser in te schakelen, installeert u **WebRTC Camera** (AlexxIT) via HACS, of schakelt u de ingebouwde go2rtc in via `default_config` in `configuration.yaml`. De integratie registreert de stream dan automatisch en go2rtc transcodeert H.265 in realtime naar H.264. Herstart Home Assistant na de wijziging.",
+      "title": "H.265-stream op kanaal {channel} — live-weergave beperkt"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "motion_clear_delay": "Vertraging bewegingsdetectie wissen (0 = onmiddellijk)",
+          "storage_refresh_interval": "Verversingsinterval opslag (HDD)"
+        },
+        "description": "Pas het gedrag van dit apparaat aan.",
+        "title": "XMEye / Sofia opties"
       }
     }
   }

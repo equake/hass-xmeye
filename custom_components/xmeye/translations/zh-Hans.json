@@ -1,103 +1,147 @@
 {
   "config": {
-    "step": {
-      "user": {
-        "title": "XMEye / Sofia 设备",
-        "description": "连接到 XMEye/Sofia DVR、NVR 或 IP 摄像机。若要自动搜索网络上的设备，请使用扫描选项。",
-        "data": {
-          "host": "主机 / IP 地址",
-          "port": "端口",
-          "username": "用户名",
-          "password": "密码"
-        }
-      },
-      "discovery": {
-        "title": "局域网搜索",
-        "description": "在网络上发现 {found} 台 XMEye/Sofia 设备。请选择一台进行配置。",
-        "data": {
-          "host": "设备"
-        }
-      },
-      "reconfigure": {
-        "title": "重新配置 XMEye / Sofia 设备",
-        "description": "更新本设备的连接设置。",
-        "data": {
-          "host": "主机 / IP 地址",
-          "port": "端口",
-          "username": "用户名",
-          "password": "新密码(留空表示保留当前密码)"
-        }
-      },
-      "reauth_confirm": {
-        "title": "重新验证 XMEye / Sofia",
-        "description": "您用于 {host} 的凭据已失效。请输入新的凭据。",
-        "data": {
-          "username": "用户名",
-          "password": "密码"
-        }
-      }
-    },
-    "error": {
-      "cannot_connect": "无法连接 — 请检查主机和端口",
-      "invalid_auth": "凭据无效 — 请检查用户名和密码",
-      "discovery_no_devices": "网络上未发现设备。请手动输入连接信息。",
-      "unknown": "出现意外错误 — 请查看 Home Assistant 日志"
-    },
     "abort": {
       "already_configured": "此设备已配置",
       "reauth_successful": "重新验证成功",
       "unique_id_mismatch": "主机/端口与已配置的设备不匹配"
-    }
-  },
-  "options": {
+    },
+    "error": {
+      "cannot_connect": "无法连接 — 请检查主机和端口",
+      "discovery_no_devices": "网络上未发现设备。请手动输入连接信息。",
+      "invalid_auth": "凭据无效 — 请检查用户名和密码",
+      "unknown": "出现意外错误 — 请查看 Home Assistant 日志"
+    },
     "step": {
-      "init": {
-        "title": "XMEye / Sofia 选项",
-        "description": "调整此设备的行为。",
+      "discovery": {
         "data": {
-          "motion_clear_delay": "移动侦测清除延迟 (0 = 立即)",
-          "storage_refresh_interval": "存储设备(硬盘)刷新间隔"
-        }
+          "host": "设备"
+        },
+        "description": "在网络上发现 {found} 台 XMEye/Sofia 设备。请选择一台进行配置。",
+        "title": "局域网搜索"
+      },
+      "reauth_confirm": {
+        "data": {
+          "password": "密码",
+          "username": "用户名"
+        },
+        "description": "您用于 {host} 的凭据已失效。请输入新的凭据。",
+        "title": "重新验证 XMEye / Sofia"
+      },
+      "reconfigure": {
+        "data": {
+          "host": "主机 / IP 地址",
+          "password": "新密码(留空表示保留当前密码)",
+          "port": "端口",
+          "username": "用户名"
+        },
+        "description": "更新本设备的连接设置。",
+        "title": "重新配置 XMEye / Sofia 设备"
+      },
+      "user": {
+        "data": {
+          "host": "主机 / IP 地址",
+          "password": "密码",
+          "port": "端口",
+          "username": "用户名"
+        },
+        "description": "连接到 XMEye/Sofia DVR、NVR 或 IP 摄像机。若要自动搜索网络上的设备，请使用扫描选项。",
+        "title": "XMEye / Sofia 设备"
       }
     }
   },
   "entity": {
     "binary_sensor": {
-      "motion": { "name": "通道{channel}移动侦测" },
-      "video_loss": { "name": "通道{channel}视频丢失" },
-      "video_blind": { "name": "通道{channel}视频遮挡" },
-      "alarm_input": { "name": "通道{channel}报警输入" },
-      "io_alarm": { "name": "通道{channel}IO 报警" },
-      "cross_line": { "name": "通道{channel}越界侦测" },
-      "intrusion": { "name": "通道{channel}区域入侵" }
-    },
-    "camera": {
-      "camera": { "name": "摄像机" }
-    },
-    "switch": {
-      "motion_detection": { "name": "通道{channel}移动侦测" },
-      "human_detection": { "name": "通道{channel}人形检测" },
-      "face_detection": { "name": "通道{channel}人脸检测" },
-      "recording": { "name": "通道{channel}录像" },
-      "privacy": { "name": "通道{channel}隐私遮挡" }
+      "alarm_input": {
+        "name": "通道{channel}报警输入"
+      },
+      "cross_line": {
+        "name": "通道{channel}越界侦测"
+      },
+      "intrusion": {
+        "name": "通道{channel}区域入侵"
+      },
+      "io_alarm": {
+        "name": "通道{channel}IO 报警"
+      },
+      "motion": {
+        "name": "通道{channel}移动侦测"
+      },
+      "video_blind": {
+        "name": "通道{channel}视频遮挡"
+      },
+      "video_loss": {
+        "name": "通道{channel}视频丢失"
+      }
     },
     "button": {
-      "reboot": { "name": "重启" }
+      "reboot": {
+        "name": "重启"
+      }
+    },
+    "camera": {
+      "camera": {
+        "name": "摄像机"
+      }
     },
     "sensor": {
-      "firmware": { "name": "固件版本" },
-      "hdd_total": { "name": "硬盘总容量" },
-      "hdd_used": { "name": "硬盘已用" },
-      "hdd_free": { "name": "硬盘剩余" },
-      "hdd_used_percent": { "name": "硬盘已用 %" },
+      "firmware": {
+        "name": "固件版本"
+      },
+      "hdd_free": {
+        "name": "硬盘剩余"
+      },
       "hdd_status": {
         "name": "硬盘状态",
         "state": {
-          "ok": "正常",
+          "error": "错误",
           "full": "已满(覆盖中)",
           "no_disk": "无硬盘",
-          "error": "错误"
+          "ok": "正常"
         }
+      },
+      "hdd_total": {
+        "name": "硬盘总容量"
+      },
+      "hdd_used": {
+        "name": "硬盘已用"
+      },
+      "hdd_used_percent": {
+        "name": "硬盘已用 %"
+      }
+    },
+    "switch": {
+      "face_detection": {
+        "name": "通道{channel}人脸检测"
+      },
+      "human_detection": {
+        "name": "通道{channel}人形检测"
+      },
+      "motion_detection": {
+        "name": "通道{channel}移动侦测"
+      },
+      "privacy": {
+        "name": "通道{channel}隐私遮挡"
+      },
+      "recording": {
+        "name": "通道{channel}录像"
+      }
+    }
+  },
+  "issues": {
+    "h265_no_go2rtc": {
+      "description": "{host} 的通道 {channel} 仅输出 H.265/HEVC 码流。Home Assistant 的实时预览仅在支持 HEVC 的浏览器中可用(Safari/macOS、Windows 平台安装了 HEVC 扩展的 Edge、移动端 App)。在 Linux 平台的 Chrome/Chromium/Firefox 中,只能看到静态抓图,无法播放实时视频。\n\n如需在任意浏览器中启用实时预览,请通过 HACS 安装 **WebRTC Camera** (AlexxIT),或在 `configuration.yaml` 中通过 `default_config` 启用内置的 go2rtc。集成将自动注册该码流,go2rtc 会实时将 H.265 转码为 H.264。修改后请重启 Home Assistant。",
+      "title": "通道 {channel} 为 H.265 码流 — 实时预览受限"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "motion_clear_delay": "移动侦测清除延迟 (0 = 立即)",
+          "storage_refresh_interval": "存储设备(硬盘)刷新间隔"
+        },
+        "description": "调整此设备的行为。",
+        "title": "XMEye / Sofia 选项"
       }
     }
   }

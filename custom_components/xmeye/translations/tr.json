@@ -1,103 +1,147 @@
 {
   "config": {
-    "step": {
-      "user": {
-        "title": "XMEye / Sofia Cihazı",
-        "description": "Bir XMEye/Sofia DVR, NVR veya IP kameraya bağlanın. Ağınızdaki cihazları otomatik bulmak için tarama seçeneğini kullanın.",
-        "data": {
-          "host": "Ana makine / IP adresi",
-          "port": "Port",
-          "username": "Kullanıcı adı",
-          "password": "Parola"
-        }
-      },
-      "discovery": {
-        "title": "Yerel Ağda Bulma",
-        "description": "Ağınızda {found} XMEye/Sofia cihaz(ı) bulundu. Yapılandırmak için birini seçin.",
-        "data": {
-          "host": "Cihaz"
-        }
-      },
-      "reconfigure": {
-        "title": "XMEye / Sofia Cihazını Yeniden Yapılandır",
-        "description": "Bu cihazın bağlantı ayarlarını güncelleyin.",
-        "data": {
-          "host": "Ana makine / IP adresi",
-          "port": "Port",
-          "username": "Kullanıcı adı",
-          "password": "Yeni parola (mevcut parolayı korumak için boş bırakın)"
-        }
-      },
-      "reauth_confirm": {
-        "title": "XMEye / Sofia Yeniden Kimlik Doğrulama",
-        "description": "{host} için kimlik bilgileriniz artık geçerli değil. Yeni kimlik bilgilerini girin.",
-        "data": {
-          "username": "Kullanıcı adı",
-          "password": "Parola"
-        }
-      }
-    },
-    "error": {
-      "cannot_connect": "Bağlantı kurulamıyor — ana makine ve portu kontrol edin",
-      "invalid_auth": "Geçersiz kimlik bilgileri — kullanıcı adı ve parolayı kontrol edin",
-      "discovery_no_devices": "Ağda cihaz bulunamadı. Bağlantı bilgilerini elle girin.",
-      "unknown": "Beklenmeyen hata — Home Assistant günlüklerini kontrol edin"
-    },
     "abort": {
       "already_configured": "Bu cihaz zaten yapılandırılmış",
       "reauth_successful": "Yeniden kimlik doğrulama başarılı oldu",
       "unique_id_mismatch": "Ana makine/port, yapılandırılmış cihazla eşleşmiyor"
-    }
-  },
-  "options": {
+    },
+    "error": {
+      "cannot_connect": "Bağlantı kurulamıyor — ana makine ve portu kontrol edin",
+      "discovery_no_devices": "Ağda cihaz bulunamadı. Bağlantı bilgilerini elle girin.",
+      "invalid_auth": "Geçersiz kimlik bilgileri — kullanıcı adı ve parolayı kontrol edin",
+      "unknown": "Beklenmeyen hata — Home Assistant günlüklerini kontrol edin"
+    },
     "step": {
-      "init": {
-        "title": "XMEye / Sofia Seçenekleri",
-        "description": "Bu cihazın davranışını ayarlayın.",
+      "discovery": {
         "data": {
-          "motion_clear_delay": "Hareket algılama temizleme gecikmesi (0 = anında)",
-          "storage_refresh_interval": "Depolama (HDD) yenileme aralığı"
-        }
+          "host": "Cihaz"
+        },
+        "description": "Ağınızda {found} XMEye/Sofia cihaz(ı) bulundu. Yapılandırmak için birini seçin.",
+        "title": "Yerel Ağda Bulma"
+      },
+      "reauth_confirm": {
+        "data": {
+          "password": "Parola",
+          "username": "Kullanıcı adı"
+        },
+        "description": "{host} için kimlik bilgileriniz artık geçerli değil. Yeni kimlik bilgilerini girin.",
+        "title": "XMEye / Sofia Yeniden Kimlik Doğrulama"
+      },
+      "reconfigure": {
+        "data": {
+          "host": "Ana makine / IP adresi",
+          "password": "Yeni parola (mevcut parolayı korumak için boş bırakın)",
+          "port": "Port",
+          "username": "Kullanıcı adı"
+        },
+        "description": "Bu cihazın bağlantı ayarlarını güncelleyin.",
+        "title": "XMEye / Sofia Cihazını Yeniden Yapılandır"
+      },
+      "user": {
+        "data": {
+          "host": "Ana makine / IP adresi",
+          "password": "Parola",
+          "port": "Port",
+          "username": "Kullanıcı adı"
+        },
+        "description": "Bir XMEye/Sofia DVR, NVR veya IP kameraya bağlanın. Ağınızdaki cihazları otomatik bulmak için tarama seçeneğini kullanın.",
+        "title": "XMEye / Sofia Cihazı"
       }
     }
   },
   "entity": {
     "binary_sensor": {
-      "motion": { "name": "K{channel} Hareket" },
-      "video_loss": { "name": "K{channel} Video Kaybı" },
-      "video_blind": { "name": "K{channel} Video Karartma" },
-      "alarm_input": { "name": "K{channel} Alarm Girişi" },
-      "io_alarm": { "name": "K{channel} I/O Alarmı" },
-      "cross_line": { "name": "K{channel} Hat İhlali" },
-      "intrusion": { "name": "K{channel} İzinsiz Giriş" }
-    },
-    "camera": {
-      "camera": { "name": "Kamera" }
-    },
-    "switch": {
-      "motion_detection": { "name": "K{channel} Hareket Algılama" },
-      "human_detection": { "name": "K{channel} İnsan Algılama" },
-      "face_detection": { "name": "K{channel} Yüz Algılama" },
-      "recording": { "name": "K{channel} Kayıt" },
-      "privacy": { "name": "K{channel} Gizlilik" }
+      "alarm_input": {
+        "name": "K{channel} Alarm Girişi"
+      },
+      "cross_line": {
+        "name": "K{channel} Hat İhlali"
+      },
+      "intrusion": {
+        "name": "K{channel} İzinsiz Giriş"
+      },
+      "io_alarm": {
+        "name": "K{channel} I/O Alarmı"
+      },
+      "motion": {
+        "name": "K{channel} Hareket"
+      },
+      "video_blind": {
+        "name": "K{channel} Video Karartma"
+      },
+      "video_loss": {
+        "name": "K{channel} Video Kaybı"
+      }
     },
     "button": {
-      "reboot": { "name": "Yeniden Başlat" }
+      "reboot": {
+        "name": "Yeniden Başlat"
+      }
+    },
+    "camera": {
+      "camera": {
+        "name": "Kamera"
+      }
     },
     "sensor": {
-      "firmware": { "name": "Aygıt yazılımı sürümü" },
-      "hdd_total": { "name": "HDD Toplam" },
-      "hdd_used": { "name": "HDD Kullanılan" },
-      "hdd_free": { "name": "HDD Boş" },
-      "hdd_used_percent": { "name": "HDD Kullanılan %" },
+      "firmware": {
+        "name": "Aygıt yazılımı sürümü"
+      },
+      "hdd_free": {
+        "name": "HDD Boş"
+      },
       "hdd_status": {
         "name": "HDD Durumu",
         "state": {
-          "ok": "Tamam",
+          "error": "Hata",
           "full": "Doldu (üzerine yazılıyor)",
           "no_disk": "Disk yok",
-          "error": "Hata"
+          "ok": "Tamam"
         }
+      },
+      "hdd_total": {
+        "name": "HDD Toplam"
+      },
+      "hdd_used": {
+        "name": "HDD Kullanılan"
+      },
+      "hdd_used_percent": {
+        "name": "HDD Kullanılan %"
+      }
+    },
+    "switch": {
+      "face_detection": {
+        "name": "K{channel} Yüz Algılama"
+      },
+      "human_detection": {
+        "name": "K{channel} İnsan Algılama"
+      },
+      "motion_detection": {
+        "name": "K{channel} Hareket Algılama"
+      },
+      "privacy": {
+        "name": "K{channel} Gizlilik"
+      },
+      "recording": {
+        "name": "K{channel} Kayıt"
+      }
+    }
+  },
+  "issues": {
+    "h265_no_go2rtc": {
+      "description": "{host} cihazının {channel} kanalı yalnızca H.265/HEVC yayınlıyor. Home Assistant'taki canlı görüntü yalnızca HEVC destekli tarayıcılarda çalışacaktır (Safari/macOS, Windows'ta HEVC uzantılarına sahip Edge, mobil uygulamalar). Linux Chrome/Chromium/Firefox'ta canlı video yerine hareketsiz bir görüntü göreceksiniz.\n\nCanlı görüntüyü herhangi bir tarayıcıda etkinleştirmek için HACS üzerinden **WebRTC Camera** (AlexxIT) yükleyin veya `configuration.yaml` dosyasında `default_config` ile yerleşik go2rtc'yi etkinleştirin. Entegrasyon daha sonra akışı otomatik olarak kaydedecek ve go2rtc H.265'i gerçek zamanlı olarak H.264'e dönüştürecektir. Değişiklikten sonra Home Assistant'ı yeniden başlatın.",
+      "title": "{channel} kanalında H.265 akışı — canlı görüntü sınırlı"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "motion_clear_delay": "Hareket algılama temizleme gecikmesi (0 = anında)",
+          "storage_refresh_interval": "Depolama (HDD) yenileme aralığı"
+        },
+        "description": "Bu cihazın davranışını ayarlayın.",
+        "title": "XMEye / Sofia Seçenekleri"
       }
     }
   }

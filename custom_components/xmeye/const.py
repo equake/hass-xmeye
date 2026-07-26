@@ -94,3 +94,19 @@ SIGNAL_NEW_CHANNEL = "xmeye_{}_new_channel"
 # Placeholder icons returned by some NVR firmwares are ~750 bytes; real frames
 # are typically 50 KB+.
 MIN_SNAPSHOT_BYTES = 10_000
+
+# go2rtc (HA-Core built-in since 2024.11) HTTP API.
+# 11984 = HA-Core bundled, 1984 = legacy/standalone. We probe both.
+# When a H.265-only stream is detected we register a transcoded RTSP entry
+# with go2rtc so the browser can play H.264 via WebRTC instead of raw H.265 HLS.
+GO2RTC_PORTS: tuple[int, ...] = (11984, 1984)
+GO2RTC_STREAMS_PATH = "/api/streams"
+GO2RTC_RTSP_PORT = 8554  # default go2rtc RTSP listener (rtsp://127.0.0.1:8554/<name>)
+
+# Codec identifiers parsed from RTSP SDP `a=rtpmap`.
+CODEC_H264 = "H264"
+CODEC_H265 = "H265"
+CODEC_UNKNOWN = "unknown"
+
+# Repair-issue identifier for H.265 without go2rtc fallback.
+REPAIR_H265_NO_GO2RTC = "h265_no_go2rtc"
