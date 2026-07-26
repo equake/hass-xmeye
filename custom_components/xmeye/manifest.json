@@ -5,8 +5,10 @@
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/equake/hass-xmeye",
+  "integration_type": "hub",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/equake/hass-xmeye/issues",
+  "quality_scale": "silver",
   "requirements": [],
   "version": "0.6.2"
 }

@@ -118,17 +118,25 @@ async def _test_credentials(
     host: str, port: int, username: str, password: str
 ) -> dict[str, Any]:
     """Open a short-lived connection, log in, return extra data for the config entry."""
-    client = XMEyeClient(host, port, username, password)
-    try:
-        await client.connect()
-        info = await client.login()
-    finally:
-        await client.close()
+    async with XMEyeClient(host, port, username, password) as client:
+        info = client._login_info
+        return {
+            CONF_CHANNEL_COUNT: info.channel_count if info else 1,
+            CONF_DEVICE_TYPE: info.device_type if info else "XMEye",
+        }
 
-    return {
-        CONF_CHANNEL_COUNT: info.channel_count,
-        CONF_DEVICE_TYPE: info.device_type,
-    }
+
+def _classify_connection_error(err: Exception) -> str:
+    """Map a connection exception to a config-flow error key."""
+    if isinstance(err, XMEyeAuthError):
+        return "invalid_auth"
+    if isinstance(err, TimeoutError):
+        return "connection_timeout"
+    if isinstance(err, ConnectionRefusedError):
+        return "connection_refused"
+    if isinstance(err, OSError):
+        return "cannot_connect"
+    return "unknown"
 
 
 class XMEyeConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -170,15 +178,10 @@ class XMEyeConfigFlow(ConfigFlow, domain=DOMAIN):
                 extra = await asyncio.wait_for(
                     _test_credentials(host, port, username, password), timeout=15.0
                 )
-            except XMEyeAuthError:
-                errors["base"] = "invalid_auth"
-            except TimeoutError:
-                errors["base"] = "cannot_connect"
-            except OSError:
-                errors["base"] = "cannot_connect"
-            except Exception:
-                _LOGGER.exception("Unexpected error during XMEye setup")
-                errors["base"] = "unknown"
+            except Exception as err:
+                errors["base"] = _classify_connection_error(err)
+                if errors["base"] == "unknown":
+                    _LOGGER.exception("Unexpected error during XMEye setup")
             else:
                 device_name = extra.get(CONF_DEVICE_TYPE) or host
                 data = {
@@ -266,13 +269,10 @@ class XMEyeConfigFlow(ConfigFlow, domain=DOMAIN):
                 extra = await asyncio.wait_for(
                     _test_credentials(host, port, username, password), timeout=15.0
                 )
-            except XMEyeAuthError:
-                errors["base"] = "invalid_auth"
-            except (TimeoutError, OSError):
-                errors["base"] = "cannot_connect"
-            except Exception:
-                _LOGGER.exception("Unexpected error during XMEye reconfigure")
-                errors["base"] = "unknown"
+            except Exception as err:
+                errors["base"] = _classify_connection_error(err)
+                if errors["base"] == "unknown":
+                    _LOGGER.exception("Unexpected error during XMEye reconfigure")
             else:
                 return self.async_update_reload_and_abort(
                     reconfigure_entry,
@@ -325,13 +325,10 @@ class XMEyeConfigFlow(ConfigFlow, domain=DOMAIN):
                 extra = await asyncio.wait_for(
                     _test_credentials(host, port, username, password), timeout=15.0
                 )
-            except XMEyeAuthError:
-                errors["base"] = "invalid_auth"
-            except (TimeoutError, OSError):
-                errors["base"] = "cannot_connect"
-            except Exception:
-                _LOGGER.exception("Unexpected error during XMEye reauth")
-                errors["base"] = "unknown"
+            except Exception as err:
+                errors["base"] = _classify_connection_error(err)
+                if errors["base"] == "unknown":
+                    _LOGGER.exception("Unexpected error during XMEye reauth")
             else:
                 return self.async_update_reload_and_abort(
                     reauth_entry,

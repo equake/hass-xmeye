@@ -231,13 +231,8 @@ class XMEyeCoordinator:
         password = self.entry.data[CONF_PASSWORD]
 
         async with self._command_lock:
-            client = XMEyeClient(host, port, username, password)
-            try:
-                await client.connect()
-                await client.login()
+            async with XMEyeClient(host, port, username, password) as client:
                 return await fn(client)
-            finally:
-                await client.close()
 
     # ------------------------------------------------------------------
     # Config helpers (used by switch.py)
@@ -577,6 +572,10 @@ class XMEyeCoordinator:
                 )
 
             if self.connected:
+                _LOGGER.warning(
+                    "Disconnected from XMEye device %s",
+                    self.entry.data[CONF_HOST],
+                )
                 self.connected = False
                 self._notify_listeners()
 
@@ -607,6 +606,12 @@ class XMEyeCoordinator:
             except Exception:
                 _LOGGER.debug("Could not fetch per-channel controls", exc_info=True)
 
+            if not self.connected:
+                _LOGGER.info(
+                    "Connected to XMEye device %s (%s)",
+                    host,
+                    login_info.device_type,
+                )
             self.connected = True
             self._notify_listeners()
 

@@ -78,6 +78,7 @@ class XMEyeClient:
         self._writer: asyncio.StreamWriter | None = None
         self._session_id: int = 0
         self._seq: int = 0
+        self._login_info: LoginInfo | None = None
 
     async def connect(self) -> None:
         self._reader, self._writer = await asyncio.wait_for(
@@ -96,6 +97,14 @@ class XMEyeClient:
             finally:
                 self._writer = None
                 self._reader = None
+
+    async def __aenter__(self) -> XMEyeClient:
+        await self.connect()
+        await self.login()
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        await self.close()
 
     async def login(self) -> LoginInfo:
         body = {
@@ -122,12 +131,13 @@ class XMEyeClient:
             resp.get("ChannelNum", 1),
             device_type,
         )
-        return LoginInfo(
+        self._login_info = LoginInfo(
             session_id=self._session_id,
             channel_count=int(resp.get("ChannelNum", 1)),
             device_type=device_type,
             keepalive_interval=int(resp.get("AliveInterval", 20)),
         )
+        return self._login_info
 
     async def subscribe_alarms(self) -> None:
         """Send alarm subscription request (cmd 1500)."""

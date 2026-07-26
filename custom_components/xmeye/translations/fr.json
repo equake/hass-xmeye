@@ -7,6 +7,8 @@
     },
     "error": {
       "cannot_connect": "Connexion impossible — vérifiez l'hôte et le port",
+      "connection_refused": "Connexion refusée — l'appareil est peut-être éteint ou le port est incorrect",
+      "connection_timeout": "La connexion a expiré — l'appareil est peut-être inaccessible",
       "discovery_no_devices": "Aucun appareil trouvé sur le réseau. Saisissez les informations de connexion manuellement.",
       "invalid_auth": "Identifiants invalides — vérifiez le nom d'utilisateur et le mot de passe",
       "unknown": "Erreur inattendue — consultez les journaux de Home Assistant"

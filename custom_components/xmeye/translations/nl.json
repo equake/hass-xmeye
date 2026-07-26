@@ -7,6 +7,8 @@
     },
     "error": {
       "cannot_connect": "Kan geen verbinding maken — controleer host en poort",
+      "connection_refused": "Verbinding geweigerd — apparaat staat mogelijk uit of de poort is onjuist",
+      "connection_timeout": "Verbindingstime-out — apparaat is mogelijk onbereikbaar",
       "discovery_no_devices": "Geen apparaten gevonden op het netwerk. Voer verbindingsgegevens handmatig in.",
       "invalid_auth": "Ongeldige inloggegevens — controleer gebruikersnaam en wachtwoord",
       "unknown": "Onverwachte fout — controleer de Home Assistant-logboeken"

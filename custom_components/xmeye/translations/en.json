@@ -7,6 +7,8 @@
     },
     "error": {
       "cannot_connect": "Cannot connect — check host and port",
+      "connection_refused": "Connection refused — device may be off or port is wrong",
+      "connection_timeout": "Connection timed out — device may be unreachable",
       "discovery_no_devices": "No devices found on the network. Enter connection details manually.",
       "invalid_auth": "Invalid credentials — check username and password",
       "unknown": "Unexpected error — check the Home Assistant logs"

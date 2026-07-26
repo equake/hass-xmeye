@@ -7,6 +7,8 @@
     },
     "error": {
       "cannot_connect": "Bağlantı kurulamıyor — ana makine ve portu kontrol edin",
+      "connection_refused": "Bağlantı reddedildi — cihaz kapalı olabilir veya port yanlış",
+      "connection_timeout": "Bağlantı zaman aşımına uğradı — cihaza erişilemiyor olabilir",
       "discovery_no_devices": "Ağda cihaz bulunamadı. Bağlantı bilgilerini elle girin.",
       "invalid_auth": "Geçersiz kimlik bilgileri — kullanıcı adı ve parolayı kontrol edin",
       "unknown": "Beklenmeyen hata — Home Assistant günlüklerini kontrol edin"

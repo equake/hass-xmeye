@@ -1,6 +1,6 @@
 # XMEye / Sofia — Home Assistant Integration
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=equake&repository=hass-xmeye&category=integration)
 [![HA Version](https://img.shields.io/badge/Home%20Assistant-2026.3%2B-blue)](https://www.home-assistant.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -38,6 +38,45 @@ The **XMEye** brand is Xiongmai's end-user mobile app and cloud platform. If you
 | **Button** | Reboot the DVR/NVR remotely |
 
 All events are **push-based** (`local_push`) — the integration maintains a persistent TCP connection and receives alarm notifications in real time with no polling delay.
+
+---
+
+## Supported Devices
+
+This integration works with any device running the **Xiongmai Sofia firmware** that exposes the DVRIP protocol. This includes:
+
+- **IP Cameras** — single-channel devices (e.g. HiSilicon HI3516/HI3518-based)
+- **DVRs** — 4/8/16/32 channel digital video recorders
+- **NVRs** — network video recorders with IP camera inputs
+- **HVRs** — hybrid DVRs with both analogue and IP channels
+
+**Compatible brands** (non-exhaustive): Annke, Sannce, Zosi, Floureon, Secam, Techage, Besder, and most OEM Xiongmai devices sold on AliExpress/Amazon.
+
+**Not compatible**: ONVIF-only devices, Dahua, Hikvision, or any device that does not use the XMEye/NetSurveillance mobile app.
+
+---
+
+## Data Update
+
+| Data | Method | Frequency |
+|------|--------|-----------|
+| Alarm events (motion, video loss, etc.) | **Push** via persistent TCP connection | Real-time |
+| Storage / HDD info | Polling via short-lived TCP connection | Every 5 minutes (configurable in Options) |
+| Channel detection (which slots have cameras) | HTTP probe at startup + periodic recheck | Startup + every 5 minutes |
+| Device info (firmware, serial) | Fetched once at login | Once per connection |
+| Channel titles | Fetched once at login | Once per connection |
+| Detection / recording state | Fetched at setup and after each write | On demand |
+
+---
+
+## Known Limitations
+
+- **H.265 streams**: Browsers on Linux (Chrome, Firefox) cannot decode H.265 in HLS/MSE. The integration auto-registers transcoded streams with go2rtc when available, but without go2rtc the live view only works in HEVC-capable browsers (Safari, Edge with HEVC extensions, mobile apps).
+- **Privacy mode is HA-side only**: The "Privacy" switch hides the camera entity and stops recording via `ClosedRecord`, but the device firmware continues to process video. To fully disable a channel, use the Recording switch.
+- **Digital channel HVRs**: On hybrid DVRs, encode settings live on the remote IPCs, not the DVR itself. The Privacy switch works around this by hiding the entity and forcing `ClosedRecord` HA-side.
+- **Old firmware**: Devices with firmware older than ~2017 may use a different alarm packet format and not all event types may be recognized.
+- **PTZ support varies**: Not all XMEye cameras support PTZ. The `xmeye.ptz` service will silently fail on non-PTZ devices.
+- **No two-way audio**: The DVRIP protocol supports audio, but this integration does not implement audio streaming or two-way talk.
 
 ---
 
