@@ -21,6 +21,7 @@ async def async_get_config_entry_diagnostics(
     coordinator = entry.runtime_data
     return {
         "config": async_redact_data(dict(entry.data), TO_REDACT),
+        "options": dict(entry.options),
         "connection": {
             "connected": coordinator.connected,
             "channel_count": coordinator.channel_count,

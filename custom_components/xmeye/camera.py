@@ -400,18 +400,26 @@ class XMEyeCamera(XMEyeEntity, Camera):
 
     async def async_will_remove_from_hass(self) -> None:
         await super().async_will_remove_from_hass()
-        # Best-effort cleanup of any go2rtc stream we registered. Failures
-        # are logged at debug only — the entity removal must not block.
-        if self._go2rtc_stream_name is not None:
-            client: Go2RTCClient | None = self._coordinator.go2rtc_client
-            if client is not None:
-                try:
-                    await client.unregister_stream(self._go2rtc_stream_name)
-                except Exception:  # noqa: BLE001
-                    _LOGGER.debug(
-                        "go2rtc unregister failed for %s", self._go2rtc_stream_name
-                    )
-            self._go2rtc_stream_name = None
+        await self._drop_go2rtc_stream()
+
+    async def _drop_go2rtc_stream(self) -> None:
+        """Remove our go2rtc registration for this channel, if any.
+
+        Deleting unconditionally rather than only when we believe we
+        registered: an entry left behind by an earlier run would otherwise
+        survive forever, because HA's provider skips its rewrite whenever
+        producer[0] still matches the camera's stream source.
+
+        Best-effort throughout — entity removal must not block on go2rtc.
+        """
+        client: Go2RTCClient | None = self._coordinator.go2rtc_client
+        if client is not None:
+            identifier = self._go2rtc_stream_name or _go2rtc_identifier(self)
+            try:
+                await client.unregister_stream(identifier)
+            except Exception:  # noqa: BLE001
+                _LOGGER.debug("go2rtc unregister failed for %s", identifier)
+        self._go2rtc_stream_name = None
         # Drop this channel from the device-wide H.265 advisory. Sibling
         # channels keep theirs.
         if self._coordinator.h265_channels.pop(self._channel, None) is not None:
@@ -454,12 +462,13 @@ class XMEyeCamera(XMEyeEntity, Camera):
         if not options.get(CONF_TRANSCODE_H265, DEFAULT_TRANSCODE_H265):
             _LOGGER.info(
                 "ch%d is H.265 but transcoding is disabled for this device — "
-                "leaving the stream to Home Assistant's defaults",
+                "handing the stream back to Home Assistant",
                 self._channel + 1,
             )
-            # Registers nothing; called only so any advisory left over from
-            # before it was switched off gets cleared.
-            await self._ensure_go2rtc_stream(self._stream_url)
+            # Not registering is not enough: an entry from a run where it was
+            # still enabled would stay alive, because HA's provider skips its
+            # rewrite while producer[0] matches the stream source.
+            await self._drop_go2rtc_stream()
             return
         _LOGGER.info(
             "ch%d is H.265 — registering with go2rtc (H.265 passthrough + "
@@ -496,16 +505,13 @@ class XMEyeCamera(XMEyeEntity, Camera):
         and one of its producers matches ``await camera.stream_source()``.
 
         Returns False without touching go2rtc when the user has turned
-        transcoding off for this device.
+        transcoding off for this device. Removing a leftover registration is
+        :meth:`_drop_go2rtc_stream`'s job, done once per entity add — this
+        method sits on the hot path (every WebRTC offer, every snapshot) and
+        must not issue HTTP just to discover it has nothing to do.
         """
         options = self._coordinator.entry.options
         if not options.get(CONF_TRANSCODE_H265, DEFAULT_TRANSCODE_H265):
-            # Deliberate choice by the user: register nothing and let HA
-            # handle the H.265 stream its own way. Dropping the channel also
-            # clears both advisories — nobody should be nagged about a
-            # trade-off they made on purpose.
-            if self._coordinator.h265_channels.pop(self._channel, None) is not None:
-                _refresh_h265_issues(self.hass, self._coordinator)
             return False
 
         client: Go2RTCClient | None = self._coordinator.go2rtc_client

@@ -335,3 +335,75 @@ conectado é
 `rtsp://127.0.0.1:18554/<id>?video&audio&source=ffmpeg:<id>%23video%3Dh264%23audio%3Dopus…`,
 que depois do `unquote` contém a string da fonte literalmente, sufixo incluído — verificado
 em campo. Trocar a opção muda a string, o match falha de propósito, e o PUT reescreve.
+
+---
+
+## 11. Bug (v0.8.3) — o `unregister_stream` nunca removeu nada
+
+O checkbox de transcoding adicionado na v0.8.2 não desligava coisa alguma: com ele
+desmarcado, os três canais continuavam registrados com a nossa string
+`ffmpeg:<id>#video=h264#audio=opus#bitrate=2048k`.
+
+### Causa raiz
+
+`internal/streams/api.go` do go2rtc:
+
+```go
+query := r.URL.Query()
+src := query.Get("src")
+
+// without source - return all streams list
+if src == "" && r.Method != "POST" {
+    api.ResponseJSON(w, streams)
+    return
+}
+
+switch r.Method {
+case "PUT":
+    name := query.Get("name")   // PUT usa `name`
+    ...
+case "DELETE":
+    delete(streams, src)        // DELETE usa `src` como chave (= o nome do stream)
+```
+
+O `unregister_stream` mandava `?name=`. Sem `src`, a requisição cai no early-return, devolve
+**200 com a lista completa de streams** e o `case "DELETE"` nunca roda. Como o código testava
+`resp.status < 300`, isso era tratado como sucesso e logado como "go2rtc stream
+unregistered". Estava assim desde o PR #32 — nunca tinha sido exercitado porque nada
+dependia da remoção até o toggle existir.
+
+Comprovado contra a instância real, com o mesmo stream:
+
+| Requisição | HTTP | Corpo | Stream depois |
+|---|---|---|---|
+| `DELETE /api/streams?name=<id>` | 200 | 1310 B (a lista inteira) | **continua lá** |
+| `DELETE /api/streams?src=<id>` | 200 | 0 B | **removido** |
+
+### Por que não se autocorrigia
+
+Depois do teardown falho, com o transcoding desligado, nada mais registrava — mas o
+`_update_stream_source` do HA só reescreve quando o stream não existe **ou** nenhum producer
+bate com o `stream_source`. O stream velho existia e o producer[0] era exatamente o
+`stream_source`, então o HA pulava a reescrita e a entrada obsoleta sobrevivia
+indefinidamente. O mesmo mecanismo que faz a v0.8.0 funcionar é o que prendia o estado
+errado aqui.
+
+### Por que era difícil de enxergar
+
+Os sinais naturais — "tem um `ffmpeg` rodando" e "o go2rtc mostra 2 online" — valem para os
+dois estados do checkbox. O HA registra **sempre** dois sources para qualquer câmera, e o
+segundo é sempre um `ffmpeg:` (o dele só transcodifica áudio, `#audio=opus#query=…`, sem
+`#video=`). Confirmado na mesma instância com uma câmera Tuya, alheia a esta integração. O
+que distingue os dois estados é o **conteúdo** do source[1], não a contagem.
+
+### Correções
+
+1. `unregister_stream` passa a usar `src=`, com guarda contra nome vazio (que reintroduziria
+   exatamente o mesmo no-op).
+2. `_drop_go2rtc_stream()` novo, chamado tanto no teardown quanto no caminho
+   "transcoding desligado" do `_maybe_register_go2rtc`. Deleta incondicionalmente, sem
+   depender de `_go2rtc_stream_name`, para limpar sobras de execuções anteriores.
+3. `_ensure_go2rtc_stream` volta a só registrar: no caminho desligado apenas `return False`,
+   sem HTTP — ele roda a cada oferta WebRTC e a cada snapshot.
+4. `diagnostics.py` passa a incluir `entry.options`. A ausência disso foi o que impediu
+   responder "a opção foi mesmo salva?" sem pedir ao usuário para abrir o formulário.
