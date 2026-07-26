@@ -212,13 +212,20 @@ class Go2RTCClient:
             return False
 
     async def unregister_stream(self, name: str) -> bool:
-        """Remove a stream from go2rtc. Best-effort: failures are logged only."""
+        """Remove a stream from go2rtc. Best-effort: failures are logged only.
+
+        DELETE is keyed off ``src``, not ``name`` — ``PUT`` is the verb that
+        takes ``name``. And a request that reaches ``/api/streams`` without a
+        ``src`` short-circuits into "list every stream" and answers 200
+        (``internal/streams/api.go``), so getting this wrong is a no-op that
+        reports success. Hence the empty-name guard.
+        """
         base = await self._ensure()
-        if base is None or self._session is None:
+        if base is None or self._session is None or not name:
             return False
         try:
             async with self._session.delete(
-                f"{base}{GO2RTC_STREAMS_PATH}", params={"name": name}, timeout=_TIMEOUT
+                f"{base}{GO2RTC_STREAMS_PATH}", params={"src": name}, timeout=_TIMEOUT
             ) as resp:
                 ok = resp.status < 300
                 if ok:
