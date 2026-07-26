@@ -7,6 +7,8 @@
     },
     "error": {
       "cannot_connect": "Verbindung nicht möglich — Host und Port prüfen",
+      "connection_refused": "Verbindung verweigert — Gerät ist möglicherweise ausgeschaltet oder der Port ist falsch",
+      "connection_timeout": "Zeitüberschreitung der Verbindung — Gerät ist möglicherweise nicht erreichbar",
       "discovery_no_devices": "Keine Geräte im Netzwerk gefunden. Verbindungsdaten manuell eingeben.",
       "invalid_auth": "Ungültige Anmeldedaten — Benutzername und Passwort prüfen",
       "unknown": "Unerwarteter Fehler — Home Assistant-Protokolle prüfen"

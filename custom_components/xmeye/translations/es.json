@@ -7,6 +7,8 @@
     },
     "error": {
       "cannot_connect": "No se puede conectar — verifique el host y el puerto",
+      "connection_refused": "Conexión rechazada — el dispositivo puede estar apagado o el puerto es incorrecto",
+      "connection_timeout": "La conexión ha expirado — el dispositivo puede no estar accesible",
       "discovery_no_devices": "No se encontraron dispositivos en la red. Ingrese los datos de conexión manualmente.",
       "invalid_auth": "Credenciales inválidas — verifique usuario y contraseña",
       "unknown": "Error inesperado — revise los registros de Home Assistant"

@@ -7,6 +7,8 @@
     },
     "error": {
       "cannot_connect": "Impossibile connettersi — verificare host e porta",
+      "connection_refused": "Connessione rifiutata — il dispositivo potrebbe essere spento o la porta è errata",
+      "connection_timeout": "Connessione scaduta — il dispositivo potrebbe non essere raggiungibile",
       "discovery_no_devices": "Nessun dispositivo trovato in rete. Inserire manualmente i dati di connessione.",
       "invalid_auth": "Credenziali non valide — verificare nome utente e password",
       "unknown": "Errore inatteso — controllare i log di Home Assistant"

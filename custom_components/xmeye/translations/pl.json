@@ -7,6 +7,8 @@
     },
     "error": {
       "cannot_connect": "Nie można nawiązać połączenia — sprawdź host i port",
+      "connection_refused": "Połączenie odrzucone — urządzenie może być wyłączone lub port jest nieprawidłowy",
+      "connection_timeout": "Przekroczono limit czasu połączenia — urządzenie może być niedostępne",
       "discovery_no_devices": "Nie znaleziono urządzeń w sieci. Wprowadź dane połączenia ręcznie.",
       "invalid_auth": "Nieprawidłowe dane logowania — sprawdź nazwę użytkownika i hasło",
       "unknown": "Nieoczekiwany błąd — sprawdź logi Home Assistant"

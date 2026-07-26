@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass
 
 from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -89,6 +90,8 @@ async def async_setup_entry(
 
 class XMEyeSwitch(XMEyeEntity, SwitchEntity, RestoreEntity):
     """A per-channel control switch (detection / recording / privacy)."""
+
+    _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(
         self,
