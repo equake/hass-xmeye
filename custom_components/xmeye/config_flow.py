@@ -33,14 +33,20 @@ from .const import (
     CONF_DEVICE_TYPE,
     CONF_MOTION_CLEAR_DELAY,
     CONF_STORAGE_REFRESH_INTERVAL,
+    CONF_TRANSCODE_BITRATE,
+    CONF_TRANSCODE_H265,
     CONFIG_ENTRY_VERSION,
     DEFAULT_MOTION_CLEAR_DELAY,
     DEFAULT_PORT,
     DEFAULT_STORAGE_REFRESH_INTERVAL,
+    DEFAULT_TRANSCODE_BITRATE,
+    DEFAULT_TRANSCODE_H265,
     DEFAULT_USERNAME,
     DOMAIN,
     MAX_STORAGE_REFRESH_INTERVAL,
+    MAX_TRANSCODE_BITRATE,
     MIN_STORAGE_REFRESH_INTERVAL,
+    MIN_TRANSCODE_BITRATE,
     UDP_DISCOVERY_PORT,
 )
 
@@ -366,6 +372,8 @@ class XMEyeOptionsFlow(OptionsFlow):
                     CONF_STORAGE_REFRESH_INTERVAL: int(
                         user_input[CONF_STORAGE_REFRESH_INTERVAL]
                     ),
+                    CONF_TRANSCODE_H265: bool(user_input[CONF_TRANSCODE_H265]),
+                    CONF_TRANSCODE_BITRATE: int(user_input[CONF_TRANSCODE_BITRATE]),
                 },
             )
 
@@ -375,6 +383,12 @@ class XMEyeOptionsFlow(OptionsFlow):
         )
         current_interval = int(
             options.get(CONF_STORAGE_REFRESH_INTERVAL, DEFAULT_STORAGE_REFRESH_INTERVAL)
+        )
+        current_transcode = bool(
+            options.get(CONF_TRANSCODE_H265, DEFAULT_TRANSCODE_H265)
+        )
+        current_bitrate = int(
+            options.get(CONF_TRANSCODE_BITRATE, DEFAULT_TRANSCODE_BITRATE)
         )
         return self.async_show_form(
             step_id="init",
@@ -396,6 +410,20 @@ class XMEyeOptionsFlow(OptionsFlow):
                         max=MAX_STORAGE_REFRESH_INTERVAL,
                         step=30,
                         unit_of_measurement="s",
+                        mode=NumberSelectorMode.SLIDER,
+                    )
+                ),
+                vol.Optional(
+                    CONF_TRANSCODE_H265, default=current_transcode
+                ): bool,
+                vol.Optional(
+                    CONF_TRANSCODE_BITRATE, default=current_bitrate
+                ): NumberSelector(
+                    NumberSelectorConfig(
+                        min=MIN_TRANSCODE_BITRATE,
+                        max=MAX_TRANSCODE_BITRATE,
+                        step=256,
+                        unit_of_measurement="kbit/s",
                         mode=NumberSelectorMode.SLIDER,
                     )
                 ),

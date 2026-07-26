@@ -2,7 +2,7 @@
 
 **Data:** 2026-06-16
 **Device:** HVR XMEye, 9 canais, host `192.168.16.10` (DVRIP porta 34567, RTSP 554)
-**Status:** Causa raiz identificada e confirmada. Correção pendente (escolha de remediação).
+**Status:** Resolvido nas v0.8.0/v0.8.1; teto de bitrate do transcode na v0.8.2. Ver §8–§10.
 
 ---
 
@@ -285,3 +285,53 @@ await document.querySelector("home-assistant").hass
 ```
 
 Antes: `{frontend_stream_types: ["hls"]}`. Depois: `["hls", "webrtc"]`.
+
+---
+
+## 10. Ajuste (v0.8.2) — o transcode gastava 9× o bitrate da origem
+
+Com tudo funcionando, uma inspeção ao vivo do `/api/streams` (câmera aberta no Chrome)
+mostrou um número ruim. Amostrando `bytes_recv` dos dois producers do `ch0` com 20 s de
+intervalo:
+
+| | |
+|---|---|
+| Origem H.265 do DVR | **0,73 Mbps** @ 2560×1440 |
+| Producer H.264 transcodificado | **6,60 Mbps** @ 2560×1440 |
+
+Resolução obtida decodificando o `sprop-parameter-sets` do SDP do producer transcodificado.
+
+Causa: o template `h264` embutido do go2rtc (`internal/ffmpeg/ffmpeg.go`) é
+
+```
+-c:v libx264 -g 50 -profile:v high -level:v 4.1 -preset:v superfast -tune:v zerolatency -pix_fmt:v yuv420p
+```
+
+— **sem controle de taxa nenhum**. O x264 cai no CRF 23 padrão e gasta bits tentando
+preservar os artefatos de compressão que o próprio DVR já introduziu. Agravante: o consumer
+WebRTC observado estava num IPv6 público, ou seja, 6,6 Mbps saindo pela internet para
+assistir a uma câmera cuja origem cabe em 0,73 Mbps.
+
+O `parseArgs` do go2rtc aceita `#bitrate=`, aplicado **depois** dos args de codec:
+
+```go
+if query["bitrate"] != nil {
+    b := query["bitrate"][0]
+    args.AddCodec("-b:v " + b + " -maxrate " + b + " -bufsize " + b)
+}
+```
+
+Correção: a fonte do ffmpeg passa a ser
+`ffmpeg:<id>#video=h264#audio=opus#bitrate=<N>k`, com `N` configurável por device no fluxo
+de opções (slider, 256–8192 kbit/s, padrão 2048). Junto veio um toggle para desligar o
+transcode por completo — nesse caso não registramos nada no go2rtc e os dois repair issues
+somem, porque a escolha foi deliberada.
+
+Resolução não é alterada de propósito: quem decodifica HEVC continua recebendo os
+2560×1440 originais, e o teto vale só para o caminho do browser.
+
+Nota sobre o `_stream_has_sources`: o sufixo novo não quebra o match. A URL do producer
+conectado é
+`rtsp://127.0.0.1:18554/<id>?video&audio&source=ffmpeg:<id>%23video%3Dh264%23audio%3Dopus…`,
+que depois do `unquote` contém a string da fonte literalmente, sufixo incluído — verificado
+em campo. Trocar a opção muda a string, o match falha de propósito, e o PUT reescreve.

@@ -144,7 +144,9 @@
       "init": {
         "data": {
           "motion_clear_delay": "Vertraging bewegingsdetectie wissen (0 = onmiddellijk)",
-          "storage_refresh_interval": "Verversingsinterval opslag (HDD)"
+          "storage_refresh_interval": "Verversingsinterval opslag (HDD)",
+          "transcode_bitrate": "Bitratelimiet van de H.264-transcodering",
+          "transcode_h265": "H.265 naar H.264 transcoderen voor browsers zonder HEVC"
         },
         "description": "Pas het gedrag van dit apparaat aan.",
         "title": "XMEye / Sofia opties"

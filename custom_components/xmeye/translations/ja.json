@@ -144,7 +144,9 @@
       "init": {
         "data": {
           "motion_clear_delay": "モーション検知解除の遅延 (0 = 即時)",
-          "storage_refresh_interval": "ストレージ(HDD)更新間隔"
+          "storage_refresh_interval": "ストレージ(HDD)更新間隔",
+          "transcode_bitrate": "H.264 トランスコードのビットレート上限",
+          "transcode_h265": "HEVC 非対応ブラウザー向けに H.265 を H.264 へトランスコード"
         },
         "description": "このデバイスの動作を調整します。",
         "title": "XMEye / Sofia オプション"

@@ -58,7 +58,9 @@
         "description": "Adjust behaviour for this device.",
         "data": {
           "motion_clear_delay": "Motion clear delay (0 = immediate)",
-          "storage_refresh_interval": "Storage (HDD) refresh interval"
+          "storage_refresh_interval": "Storage (HDD) refresh interval",
+          "transcode_h265": "Transcode H.265 to H.264 for browsers without HEVC",
+          "transcode_bitrate": "H.264 transcode bitrate cap"
         }
       }
     }
