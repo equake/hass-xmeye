@@ -32,7 +32,7 @@ The **XMEye** brand is Xiongmai's end-user mobile app and cloud platform. If you
 
 | Platform | What you get |
 |---|---|
-| **Camera** | Live RTSP stream per channel, on-demand JPEG snapshot, PTZ control (pan/tilt/zoom) |
+| **Camera** | Live RTSP stream per channel (main stream, plus an optional sub-stream entity), on-demand JPEG snapshot, PTZ control (pan/tilt/zoom) |
 | **Binary Sensor** | Push alarm events: motion, video loss, video blind/tamper, alarm input, I/O alarm, cross-line, intrusion |
 | **Switch** | Enable / disable motion detection and recording per channel |
 | **Sensor** | HDD total/used space, HDD status, firmware version |
@@ -80,6 +80,23 @@ This integration works with any device running the **Xiongmai Sofia firmware** t
 - **No two-way audio**: The DVRIP protocol supports audio, but this integration does not implement audio streaming or two-way talk.
 
 ---
+
+## Main stream and sub stream
+
+Each channel gets two camera entities, the same layout Reolink, UniFi Protect and ONVIF use:
+
+| Entity | Stream | Default |
+|---|---|---|
+| `camera.<device>_<channel>` | Main stream (`stream=0.sdp`, full resolution) | Enabled |
+| `camera.<device>_<channel>_substream` (name follows the HA language) | Sub stream (`stream=1.sdp`, low resolution) | **Disabled** |
+
+The sub-stream entity starts faster and uses far less bandwidth — handy for dashboards with
+many cameras or for remote access. Enable it under *Settings → Devices & services → XMEye →
+Entities*, then point the card at it. Snapshots come from the same HTTP endpoint for both.
+
+The main entity keeps its existing fallback: if the main stream is H.265 and the sub stream
+is H.264, it plays the sub stream to avoid a transcode. Diagnostics show which stream each
+entity actually picked (`stream_idx`).
 
 ## H.265 handling
 

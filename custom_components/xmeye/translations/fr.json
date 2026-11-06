@@ -83,6 +83,9 @@
     "camera": {
       "camera": {
         "name": "Caméra"
+      },
+      "camera_sub": {
+        "name": "{title} Flux secondaire"
       }
     },
     "sensor": {

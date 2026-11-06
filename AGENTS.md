@@ -99,6 +99,11 @@ returns **`Ret=607`**. Use `client.system_info(name)` (cmd 1020) instead.
   the universal "blank the channel" lever, BUT on **digital-channel** HVRs `Simplify.Encode`/`Encode`
   are degenerate (`{"0":null,"1":null,"Enable":true}`) — encode lives on the remote IPCs. There the
   Privacy switch is HA-side (`coordinator.private_channels` → camera entity hidden + `ClosedRecord`).
+- **Camera streams**: two `XMEyeCamera` entities per channel — main (`stream=0`, unique_id
+  `…_ch{n}_camera`) and sub (`stream=1`, `…_ch{n}_camera_sub`, disabled by default,
+  translation key `camera_sub`). The sub entity probes only sub-stream URLs; the main entity probes
+  all and may fall back to an H.264 sub when the main is H.265. `coordinator.h265_channels` and
+  `stream_info` are keyed by `(channel, stream)`.
 
 **Response codes** (`Ret`): `100`/`515` = OK (`RET_OK`); `607` = wrong command channel for that
 `Name` (e.g. 1042 asked for runtime info); `101`/`106`/`203` = auth failure (`RET_AUTH_FAIL`).

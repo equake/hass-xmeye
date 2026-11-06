@@ -83,6 +83,9 @@
     "camera": {
       "camera": {
         "name": "Камера"
+      },
+      "camera_sub": {
+        "name": "{title} Дополнительный поток"
       }
     },
     "sensor": {

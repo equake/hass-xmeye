@@ -125,12 +125,13 @@ class XMEyeCoordinator:
         # H.265-only channels play in browsers without HEVC. The endpoint is
         # resolved lazily on first use.
         self.go2rtc_client: Go2RTCClient | None = Go2RTCClient(hass)
-        # Channels detected as H.265 → True when go2rtc is transcoding them,
-        # False when it is not reachable. Drives the repair issues and
-        # diagnostics.
-        self.h265_channels: dict[int, bool] = {}
-        # Per-channel stream probe results, for diagnostics only.
-        self.stream_info: dict[int, dict[str, Any]] = {}
+        # Camera streams detected as H.265, keyed by (channel, stream) with
+        # stream 0 = main entity, 1 = sub-stream entity → True when go2rtc is
+        # transcoding them, False when it is not reachable. Drives the repair
+        # issues and diagnostics.
+        self.h265_channels: dict[tuple[int, int], bool] = {}
+        # Per-entity stream probe results, same keys, for diagnostics only.
+        self.stream_info: dict[tuple[int, int], dict[str, Any]] = {}
 
     # ------------------------------------------------------------------
     # Lifecycle

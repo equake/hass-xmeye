@@ -83,6 +83,9 @@
     "camera": {
       "camera": {
         "name": "Kamera"
+      },
+      "camera_sub": {
+        "name": "{title} Strumień pomocniczy"
       }
     },
     "sensor": {
