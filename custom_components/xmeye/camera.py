@@ -92,8 +92,8 @@ def _refresh_h265_issues(hass: HomeAssistant, coordinator: XMEyeCoordinator) -> 
     entry = coordinator.entry
     states = coordinator.h265_channels
     buckets = {
-        REPAIR_H265_TRANSCODING: sorted(ch + 1 for ch, ok in states.items() if ok),
-        REPAIR_H265_NO_GO2RTC: sorted(ch + 1 for ch, ok in states.items() if not ok),
+        REPAIR_H265_TRANSCODING: sorted({ch + 1 for (ch, _), ok in states.items() if ok}),
+        REPAIR_H265_NO_GO2RTC: sorted({ch + 1 for (ch, _), ok in states.items() if not ok}),
     }
     for translation_key, channels in buckets.items():
         issue_id = f"{translation_key}_{entry.entry_id}"
@@ -184,6 +184,9 @@ def _is_valid_frame(data: bytes) -> bool:
     return size[0] >= _MIN_SNAPSHOT_WIDTH and size[1] >= _MIN_SNAPSHOT_HEIGHT
 
 _RTSP_PORT = 554
+# RTSP stream indexes as the firmware numbers them (`stream=N.sdp`).
+_STREAM_MAIN = 0
+_STREAM_SUB = 1
 _RTSP_PROBE_TIMEOUT = 4.0
 
 
@@ -309,12 +312,21 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: XMEyeCoordinator = entry.runtime_data
+
+    def _cameras(channel: int) -> list[XMEyeCamera]:
+        # Main stream (enabled) + sub stream (disabled by default), the same
+        # one-entity-per-stream layout Reolink, UniFi Protect and ONVIF use.
+        return [
+            XMEyeCamera(coordinator, channel, _STREAM_MAIN),
+            XMEyeCamera(coordinator, channel, _STREAM_SUB),
+        ]
+
     async_add_entities([
-        XMEyeCamera(coordinator, ch) for ch in sorted(coordinator.connected_channels)
+        cam for ch in sorted(coordinator.connected_channels) for cam in _cameras(ch)
     ])
 
     def _on_new_channel(channel: int) -> None:
-        async_add_entities([XMEyeCamera(coordinator, channel)])
+        async_add_entities(_cameras(channel))
 
     entry.async_on_unload(
         async_dispatcher_connect(
@@ -345,24 +357,39 @@ class XMEyeCamera(XMEyeEntity, Camera):
     _attr_translation_key = "camera"
     _attr_supported_features = CameraEntityFeature.STREAM
 
-    def __init__(self, coordinator: XMEyeCoordinator, channel: int) -> None:
+    def __init__(
+        self,
+        coordinator: XMEyeCoordinator,
+        channel: int,
+        stream: int = _STREAM_MAIN,
+    ) -> None:
         super().__init__(coordinator)
         self._channel = channel
+        # Which entity this is: the main-stream camera, or the dedicated
+        # sub-stream one (lower resolution, faster to start).
+        self._stream = stream
+        self._is_sub = stream == _STREAM_SUB
 
         entry = coordinator.entry
         self._host: str = entry.data[CONF_HOST]
         self._username: str = entry.data[CONF_USERNAME]
         self._password: str = entry.data[CONF_PASSWORD]
 
-        self._attr_unique_id = f"{entry.entry_id}_ch{channel}_camera"
+        self._attr_unique_id = f"{entry.entry_id}_ch{channel}_camera" + (
+            "_sub" if self._is_sub else ""
+        )
+        if self._is_sub:
+            self._attr_translation_key = "camera_sub"
+            self._attr_entity_registry_enabled_default = False
 
         # Cached after first successful probe; None means "not yet discovered".
         self._snapshot_path: str | None = None
         self._stream_url: str | None = None
         # Codec of the chosen RTSP stream ("H264", "H265", "unknown").
         self._codec: str = CODEC_UNKNOWN
-        # 0 = main, 1 = sub. Tracked for diagnostics only.
-        self._stream_idx: int = 0
+        # 0 = main, 1 = sub — the stream actually picked by the probe. The
+        # main entity may still land on 1 (H.265 main + H.264 sub).
+        self._stream_idx: int = stream
         # If we successfully registered a transcoded go2rtc stream, the
         # registered stream name; None otherwise. Used to clean up on
         # entity removal and to switch stream_source() to the go2rtc URL.
@@ -376,11 +403,33 @@ class XMEyeCamera(XMEyeEntity, Camera):
         self._stream_lock = asyncio.Lock()
 
     @property
-    def name(self) -> str:
+    def _channel_title(self) -> str:
         titles = self._coordinator.channel_titles
         if titles and self._channel < len(titles) and titles[self._channel]:
             return titles[self._channel]
         return f"CH{self._channel + 1}"
+
+    @property
+    def name(self) -> str:
+        # A plain property on purpose: HA caches Entity.name, and the channel
+        # title only arrives once the coordinator has logged in.
+        title = self._channel_title
+        if not self._is_sub:
+            return title
+        template = None
+        if self.platform_data and self._name_translation_key:
+            template = self.platform_data.platform_translations.get(
+                self._name_translation_key
+            )
+        try:
+            return (template or "{title} Substream").format(title=title)
+        except (KeyError, IndexError, ValueError):
+            return f"{title} Substream"
+
+    @property
+    def _stream_key(self) -> tuple[int, int]:
+        """Key for this entity in the coordinator's per-stream dicts."""
+        return (self._channel, self._stream)
 
     @property
     def available(self) -> bool:
@@ -420,9 +469,9 @@ class XMEyeCamera(XMEyeEntity, Camera):
             except Exception:  # noqa: BLE001
                 _LOGGER.debug("go2rtc unregister failed for %s", identifier)
         self._go2rtc_stream_name = None
-        # Drop this channel from the device-wide H.265 advisory. Sibling
-        # channels keep theirs.
-        if self._coordinator.h265_channels.pop(self._channel, None) is not None:
+        # Drop this entity from the device-wide H.265 advisory. Sibling
+        # channels (and the other stream of this channel) keep theirs.
+        if self._coordinator.h265_channels.pop(self._stream_key, None) is not None:
             _refresh_h265_issues(self.hass, self._coordinator)
 
     @callback
@@ -533,8 +582,8 @@ class XMEyeCamera(XMEyeEntity, Camera):
             self._go2rtc_stream_name = identifier
         # Keep the device-wide advisory in step: go2rtc coming or going flips
         # which of the two repair issues applies.
-        if self._coordinator.h265_channels.get(self._channel) != ok:
-            self._coordinator.h265_channels[self._channel] = ok
+        if self._coordinator.h265_channels.get(self._stream_key) != ok:
+            self._coordinator.h265_channels[self._stream_key] = ok
             _refresh_h265_issues(self.hass, self._coordinator)
         return ok
 
@@ -593,15 +642,18 @@ class XMEyeCamera(XMEyeEntity, Camera):
         For each URL shape we try the main stream (0, high-res) AND the
         sub stream (1, low-res). Preference is applied later in
         `_find_stream_url` based on parsed SDP codec: H.264 wins over
-        H.265, and the sub stream is preferred for transcoding cost when
-        only H.265 is available.
+        H.265, and the earlier candidate wins a tie.
+
+        The sub-stream entity only gets the sub-stream candidates; the main
+        entity keeps the full list so it can still fall back to an H.264
+        sub stream when the main one is H.265.
         """
         h = sofia_hash(self._password)
         ch = self._channel
         host = self._host
         user = self._username
         pwd = self._password
-        return [
+        candidates = [
             # XMEye / Sofia standard format — main then sub
             (f"rtsp://{host}:{_RTSP_PORT}/user={user}&password={h}"
              f"&channel={ch + 1}&stream=0.sdp", 0),
@@ -615,6 +667,9 @@ class XMEyeCamera(XMEyeEntity, Camera):
             (f"rtsp://{host}:{_RTSP_PORT}/h264/ch{ch + 1}/main/av_stream", 0),
             (f"rtsp://{host}:{_RTSP_PORT}/h264/ch{ch + 1}/sub/av_stream", 1),
         ]
+        if self._is_sub:
+            return [c for c in candidates if c[1] == _STREAM_SUB]
+        return candidates
 
     async def _find_stream_url(self) -> None:
         """Probe every candidate and cache the best by codec.
@@ -649,7 +704,7 @@ class XMEyeCamera(XMEyeEntity, Camera):
 
             if best is not None:
                 self._stream_url, self._codec, self._stream_idx = best
-                self._coordinator.stream_info[self._channel] = {
+                self._coordinator.stream_info[self._stream_key] = {
                     "codec": self._codec,
                     "stream_idx": self._stream_idx,
                     "url": re.sub(r"password=[^&]*", "password=***", self._stream_url),
@@ -661,8 +716,8 @@ class XMEyeCamera(XMEyeEntity, Camera):
                 )
                 return
             _LOGGER.debug(
-                "No working RTSP stream for ch%d on %s",
-                self._channel + 1, self._host,
+                "No working RTSP %s stream for ch%d on %s",
+                "sub" if self._is_sub else "main", self._channel + 1, self._host,
             )
 
     # ------------------------------------------------------------------
@@ -699,12 +754,12 @@ class XMEyeCamera(XMEyeEntity, Camera):
         return None
 
     def _default_stream_url(self) -> str:
-        """Standard XMEye main-stream URL, used until the probe finishes."""
+        """Standard XMEye URL for this entity's stream, used until the probe finishes."""
         h = sofia_hash(self._password)
         return (
             f"rtsp://{self._host}:{_RTSP_PORT}"
             f"/user={self._username}&password={h}"
-            f"&channel={self._channel + 1}&stream=0.sdp"
+            f"&channel={self._channel + 1}&stream={self._stream}.sdp"
         )
 
     async def stream_source(self) -> str | None:

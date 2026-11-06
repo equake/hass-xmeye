@@ -83,6 +83,9 @@
     "camera": {
       "camera": {
         "name": "摄像机"
+      },
+      "camera_sub": {
+        "name": "{title} 子码流"
       }
     },
     "sensor": {

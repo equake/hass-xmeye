@@ -83,6 +83,9 @@
     "camera": {
       "camera": {
         "name": "Câmera"
+      },
+      "camera_sub": {
+        "name": "{title} Stream secundário"
       }
     },
     "sensor": {

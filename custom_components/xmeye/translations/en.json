@@ -83,6 +83,9 @@
     "camera": {
       "camera": {
         "name": "Camera"
+      },
+      "camera_sub": {
+        "name": "{title} Substream"
       }
     },
     "sensor": {

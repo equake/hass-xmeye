@@ -33,7 +33,10 @@ async def async_get_config_entry_diagnostics(
             f"ch{ch}_{et}": v for (ch, et), v in coordinator.states.items()
         },
         "streams": {
-            f"ch{ch + 1}": {**info, "go2rtc_transcoding": coordinator.h265_channels.get(ch)}
-            for ch, info in sorted(coordinator.stream_info.items())
+            f"ch{ch + 1}{'_sub' if stream else ''}": {
+                **info,
+                "go2rtc_transcoding": coordinator.h265_channels.get((ch, stream)),
+            }
+            for (ch, stream), info in sorted(coordinator.stream_info.items())
         },
     }

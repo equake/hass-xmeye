@@ -76,7 +76,8 @@
       "intrusion": { "name": "CH{channel} Intrusion" }
     },
     "camera": {
-      "camera": { "name": "Camera" }
+      "camera": { "name": "Camera" },
+      "camera_sub": { "name": "{title} Substream" }
     },
     "switch": {
       "motion_detection": { "name": "CH{channel} Motion Detection" },

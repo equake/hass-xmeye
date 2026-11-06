@@ -83,6 +83,9 @@
     "camera": {
       "camera": {
         "name": "Telecamera"
+      },
+      "camera_sub": {
+        "name": "{title} Flusso secondario"
       }
     },
     "sensor": {

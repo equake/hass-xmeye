@@ -83,6 +83,9 @@
     "camera": {
       "camera": {
         "name": "カメラ"
+      },
+      "camera_sub": {
+        "name": "{title} サブストリーム"
       }
     },
     "sensor": {
